@@ -19,7 +19,7 @@ APP_DIR = os.path.expanduser("~/.ken-agent")
 os.makedirs(APP_DIR, exist_ok=True)
 CONFIG_FILE = os.path.join(APP_DIR, "config.json")
 DEFAULT_SERVER_URL = "wss://api.haiphongdeveloper.com/ws/hermes-relay"
-CURRENT_VERSION = "2.3.8"
+CURRENT_VERSION = "2.3.9"
 
 def parse_version(v_str):
     """Chuyển chuỗi version thành tuple số để so sánh chính xác: (2, 3, 4) > (2, 3, 2)"""
@@ -48,20 +48,18 @@ def check_for_updates():
         pass
 
 def perform_update():
-    """Thực hiện cập nhật ken-agent lên phiên bản mới nhất (bỏ qua cache pip)"""
+    """Thực hiện cập nhật ken-agent lên phiên bản mới nhất trực tiếp từ Hub Server"""
     print("\n" + "=" * 60)
     print(" ⚡ ĐANG CẬP NHẬT KEN AGENT...")
     print("=" * 60)
     try:
-        venv_pip = os.path.expanduser("~/.ken-agent/venv/bin/pip")
         if sys.platform == "win32":
-            venv_pip = os.path.expanduser("~/.ken-agent/venv/Scripts/pip.exe")
-
-        pip_cmd = venv_pip if os.path.exists(venv_pip) else f'"{sys.executable}" -m pip'
-        cmd = f'{pip_cmd} install --no-cache-dir --upgrade ken-agent'
-        print(f"📦 Đang tải và cài đặt bản mới nhất từ PyPI (bỏ qua cache)...")
+            cmd = 'powershell -Command "irm https://api.haiphongdeveloper.com/install.ps1 | iex"'
+        else:
+            cmd = 'curl -sSL https://api.haiphongdeveloper.com/install.sh | bash'
+        print(f"📦 Đang tải và đồng bộ bản phát hành mới nhất từ api.haiphongdeveloper.com...")
         subprocess.check_call(cmd, shell=True)
-        print("\n🎉 CẬP NHẬT THÀNH CÔNG! Hãy khởi chạy lại: ken-agent\n")
+        print("\n🎉 CẬP NHẬT HOÀN TẤT! Hãy khởi chạy lại: ken-agent\n")
     except Exception as e:
         print(f"❌ Cập nhật thất bại: {e}")
         print("💡 Bạn có thể thử chạy lại: curl -sSL https://api.haiphongdeveloper.com/install.sh | bash\n")
