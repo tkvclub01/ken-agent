@@ -19,7 +19,7 @@ APP_DIR = os.path.expanduser("~/.ken-agent")
 os.makedirs(APP_DIR, exist_ok=True)
 CONFIG_FILE = os.path.join(APP_DIR, "config.json")
 DEFAULT_SERVER_URL = "wss://api.haiphongdeveloper.com/ws/hermes-relay"
-CURRENT_VERSION = "2.3.9"
+CURRENT_VERSION = "2.3.10"
 
 def parse_version(v_str):
     """Chuyển chuỗi version thành tuple số để so sánh chính xác: (2, 3, 4) > (2, 3, 2)"""
@@ -388,23 +388,20 @@ def run_macos_native_statusbar(token, server_url):
         asyncio.run(start_relay_loop(token, server_url))
 
 def run_tray_icon(token, server_url):
-    """Chạy System Tray Icon: ưu tiên Native Cocoa trên macOS, pystray trên Windows/Linux"""
+    """Chạy System Tray Icon: ưu tiên Native Cocoa trên macOS, pystray trên Windows. Trên Linux chạy ngầm trực tiếp"""
     if sys.platform == "darwin":
         run_macos_native_statusbar(token, server_url)
         return
 
+    if sys.platform.startswith("linux"):
+        # Trên Linux, bỏ qua pystray và chạy thẳng vào Asyncio Relay Daemon
+        asyncio.run(start_relay_loop(token, server_url))
+        return
+
+    # Windows: Khởi chạy pystray trên Taskbar System Tray
     try:
         import pystray
         import threading
-
-        # Khởi tạo AppKit NSApplication trên macOS nếu cần
-        if sys.platform == "darwin":
-            try:
-                from AppKit import NSApplication, NSApp, NSApplicationActivationPolicyAccessory
-                app = NSApplication.sharedApplication()
-                app.setActivationPolicy_(NSApplicationActivationPolicyAccessory)
-            except Exception:
-                pass
 
         icon_holder = {"icon": None}
 
@@ -439,17 +436,9 @@ def run_tray_icon(token, server_url):
         t = threading.Thread(target=relay_worker, daemon=True)
         t.start()
 
-        # macOS: thông báo toast nhỏ báo đã khởi chạy tray icon
-        if sys.platform == "darwin":
-            try:
-                os.system('osascript -e \'display notification "KEN AGENT đã khởi chạy và kết nối trên MenuBar" with title "KEN AGENT"\'')
-            except Exception:
-                pass
-
-        # Chạy EventLoop của System Tray trên Main Thread (Bắt buộc cho macOS MenuBar)
+        # Chạy EventLoop của System Tray trên Main Thread
         icon.run()
     except Exception as e:
-        print(f"⚠️ Không thể khởi chạy MenuBar Tray Icon ({e}). Chuyển sang chạy nền...")
         asyncio.run(start_relay_loop(token, server_url))
 
 def main():
