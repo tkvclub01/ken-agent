@@ -19,7 +19,7 @@ APP_DIR = os.path.expanduser("~/.ken-agent")
 os.makedirs(APP_DIR, exist_ok=True)
 CONFIG_FILE = os.path.join(APP_DIR, "config.json")
 DEFAULT_SERVER_URL = "wss://api.haiphongdeveloper.com/ws/hermes-relay"
-CURRENT_VERSION = "2.3.13"
+CURRENT_VERSION = "2.3.14"
 
 def parse_version(v_str):
     """Chuyển chuỗi version thành tuple số để so sánh chính xác: (2, 3, 4) > (2, 3, 2)"""
@@ -463,24 +463,16 @@ def run_linux_appindicator_tray(token, server_url):
         asyncio.run(start_relay_loop(token, server_url))
 
 def run_tray_icon(token, server_url):
-    """Chạy System Tray Icon: ưu tiên Native Cocoa trên macOS, AppIndicator trên Linux, pystray trên Windows"""
+    """Chạy System Tray Icon: ưu tiên Native Cocoa trên macOS, pystray/AppIndicator trên Windows & Linux"""
     if sys.platform == "darwin":
         run_macos_native_statusbar(token, server_url)
         return
 
-    if sys.platform.startswith("linux"):
-        # Trên Linux Desktop, khởi chạy native Ayatana AppIndicator
-        if os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"):
-            run_linux_appindicator_tray(token, server_url)
-            return
-        else:
-            asyncio.run(start_relay_loop(token, server_url))
-            return
-
-    # Windows: Khởi chạy pystray trên Taskbar System Tray
+    # Windows & Linux Desktop (GNOME/KDE/XFCE): Sử dụng pystray với cơ chế xlib/appindicator chuẩn
     try:
         import pystray
         import threading
+        import webbrowser
 
         icon_holder = {"icon": None}
 
@@ -489,11 +481,9 @@ def run_tray_icon(token, server_url):
             os._exit(0)
 
         def on_open_dashboard(icon, item):
-            import webbrowser
             webbrowser.open("https://api.haiphongdeveloper.com")
 
         def on_open_bot(icon, item):
-            import webbrowser
             webbrowser.open("https://t.me/eto_codex_bot")
 
         menu = pystray.Menu(
@@ -508,6 +498,8 @@ def run_tray_icon(token, server_url):
         icon = pystray.Icon("ken_agent", icon_img, "KEN AGENT - AI Runner (HPD)", menu)
         icon_holder["icon"] = icon
 
+        print("⚡ [TRAY] Đã kích hoạt biểu tượng KEN AGENT trên khay hệ thống (System Tray).")
+
         # Chạy WSS Relay Loop trong luồng nền
         def relay_worker():
             asyncio.run(start_relay_loop(token, server_url))
@@ -518,6 +510,7 @@ def run_tray_icon(token, server_url):
         # Chạy EventLoop của System Tray trên Main Thread
         icon.run()
     except Exception as e:
+        print(f"⚠️ Lỗi khởi tạo System Tray ({e}). Chuyển sang chạy nền...")
         asyncio.run(start_relay_loop(token, server_url))
 
 def main():
