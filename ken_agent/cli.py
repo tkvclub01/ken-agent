@@ -19,7 +19,7 @@ APP_DIR = os.path.expanduser("~/.ken-agent")
 os.makedirs(APP_DIR, exist_ok=True)
 CONFIG_FILE = os.path.join(APP_DIR, "config.json")
 DEFAULT_SERVER_URL = "wss://api.haiphongdeveloper.com/ws/hermes-relay"
-CURRENT_VERSION = "2.3.17"
+CURRENT_VERSION = "2.3.18"
 
 def parse_version(v_str):
     """Chuyển chuỗi version thành tuple số để so sánh chính xác: (2, 3, 4) > (2, 3, 2)"""
@@ -485,24 +485,23 @@ def run_linux_appindicator_tray(token, server_url):
         asyncio.run(start_relay_loop(token, server_url))
 
 def run_tray_icon(token, server_url):
-    """Chạy System Tray Icon: ưu tiên Native Cocoa trên macOS, AppIndicator chuẩn trên Linux, pystray trên Windows"""
+    """Chạy System Tray Icon đa nền tảng: macOS (Cocoa Native), Linux & Windows (Pystray Native Menu)"""
     if sys.platform == "darwin":
         run_macos_native_statusbar(token, server_url)
         return
 
-    if sys.platform.startswith("linux"):
-        # Trên Linux Desktop, sử dụng trực tiếp AyatanaAppIndicator để neo vào GNOME Top Bar
-        if os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"):
-            run_linux_appindicator_tray(token, server_url)
-            return
-
-    # Windows: Sử dụng pystray
+    # Windows & Linux: Sử dụng pystray với cơ chế native menu tương tác 100% khi click chuột
     try:
         import pystray
         import threading
         import webbrowser
+        from PIL import Image
 
-        icon_holder = {"icon": None}
+        icon_path = os.path.join(APP_DIR, "tray_icon.png")
+        if os.path.exists(icon_path):
+            icon_img = Image.open(icon_path)
+        else:
+            icon_img = create_tray_icon_image(True)
 
         def on_quit(icon, item):
             icon.stop()
@@ -514,19 +513,18 @@ def run_tray_icon(token, server_url):
         def on_open_bot(icon, item):
             webbrowser.open("https://t.me/eto_codex_bot")
 
+        # Cấu hình Menu tương tác đầy đủ với Default Action khi click đúp / click chuột trái
         menu = pystray.Menu(
-            pystray.MenuItem("⚡ KEN AGENT: Đang chạy ngầm", None, enabled=False),
-            pystray.MenuItem("📱 Mở Telegram Bot (@eto_codex_bot)", on_open_bot),
+            pystray.MenuItem("⚡ KEN AGENT: Đang Online", None, enabled=False),
+            pystray.MenuItem("📱 Mở Telegram Bot (@eto_codex_bot)", on_open_bot, default=True),
             pystray.MenuItem("🌐 Quản lý Ví Lúa & Token", on_open_dashboard),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("❌ Thoát KEN AGENT", on_quit)
         )
 
-        icon_img = create_tray_icon_image(True)
         icon = pystray.Icon("ken_agent", icon_img, "KEN AGENT - AI Runner (HPD)", menu)
-        icon_holder["icon"] = icon
 
-        print("⚡ [TRAY] Đã kích hoạt biểu tượng KEN AGENT trên khay hệ thống Windows.")
+        print("⚡ [TRAY] Đã kích hoạt biểu tượng Robot KEN AGENT trên khay hệ thống (System Tray).")
 
         # Chạy WSS Relay Loop trong luồng nền
         def relay_worker():
