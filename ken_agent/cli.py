@@ -125,16 +125,30 @@ async def start_relay_loop(token, server_url):
                         code = data.get("pairing_code")
                         paired = data.get("paired_channels", [])
 
-                        print("┌" + "─" * 63 + "┐")
-                        print(f"│  👤 Tài khoản: {name:<46} │")
+                        print("┌" + "─" * 68 + "┐")
+                        print(f"│  👤 Tài khoản: {name:<51} │")
                         if code:
-                            print(f"│  👉 MÃ GHÉP ĐÔI CỦA BẠN: [ \033[1;32m{code}\033[0m ]                       │")
-                            print("│  📌 Mở Telegram/Zalo và nhắn: /pair " + f"{code:<27} │")
+                            tele_link = f"https://t.me/eto_otp_bot?start=pair_{code}"
+                            qr_view_url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={tele_link}"
+
+                            print(f"│  👉 MÃ GHÉP ĐÔI CỦA BẠN: [ \033[1;32m{code}\033[0m ]                              │")
+                            print("├" + "─" * 68 + "┤")
+                            print("│  📲 HƯỚNG DẪN KẾT NỐI (CHỌN 1 TRONG 3 CÁCH):                       │")
+                            print("│                                                                    │")
+                            print(f"│  1️⃣  \033[1;36mTELEGRAM (Khuyên Dùng):\033[0m                                      │")
+                            print(f"│      • Link 1-Click: \033[1;34m{tele_link}\033[0m    │")
+                            print(f"│      • Hoặc mở Bot \033[1;33m@eto_otp_bot\033[0m và gửi: \033[1;32m/pair {code}\033[0m               │")
+                            print("│                                                                    │")
+                            print(f"│  2️⃣  \033[1;36mZALO BOT:\033[0m                                                    │")
+                            print(f"│      • Mở Zalo tìm Bot \033[1;33mBot Ken Ai Edu\033[0m và gửi: \033[1;32m/pair {code}\033[0m           │")
+                            print("│                                                                    │")
+                            print(f"│  3️⃣  \033[1;36mQUÉT MÃ QR NHANH:\033[0m                                            │")
+                            print(f"│      • Mở ảnh QR để quét: \033[1;34m{qr_view_url}\033[0m │")
                         else:
-                            print(f"│  ✅ Trạng thái: Đã kết nối với {len(paired)} kênh chat.               │")
+                            print(f"│  ✅ Trạng thái: Đã kết nối với {len(paired)} kênh chat.                      │")
                             for p in paired:
                                 print(f"│     • {p.get('platform').upper()}: {p.get('user_name')} ({p.get('user_channel_id')})")
-                        print("└" + "─" * 63 + "┘")
+                        print("└" + "─" * 68 + "┘")
 
                     elif msg_type == "PAIR_SUCCESS":
                         print(f"\n🎉 [GHÉP ĐÔI THÀNH CÔNG] Đã liên kết với {data.get('platform').upper()}: {data.get('user_name')}!")
