@@ -1,6 +1,6 @@
 # 🚀 KEN AGENT - Trợ Lý AI Tự Hành Điều Khiển Máy Tính Cá Nhân
 
-**KEN AGENT** là nền tảng AI Agent thế hệ mới thuộc hệ sinh thái **HPD Ecosystem**, cho phép bạn kết nối và điều khiển máy tính cá nhân (macOS, Windows, Linux) từ xa bằng **ngôn ngữ tự nhiên 100%** thông qua **Telegram Bot** (`@eto_otp_bot`).
+**KEN AGENT** là nền tảng AI Agent thế hệ mới thuộc hệ sinh thái **HPD Ecosystem**, cho phép bạn kết nối và điều khiển máy tính cá nhân (macOS, Windows, Linux) từ xa bằng **ngôn ngữ tự nhiên 100%** thông qua **Telegram Bot** (`@eto_codex_bot`).
 
 ---
 
@@ -42,7 +42,7 @@ ken-agent
    ```
 2. **Ghép đôi với Telegram Bot:**
    - Màn hình Terminal sẽ hiện mã ghép đôi và mã QR.
-   - Bấm vào link hiển thị (hoặc quét mã QR) để mở bot: **[@eto_otp_bot](https://t.me/eto_otp_bot)**
+   - Bấm vào link hiển thị (hoặc quét mã QR) để mở bot: **[@eto_codex_bot](https://t.me/eto_codex_bot)**
    - Bấm **Start / Bắt đầu** ➔ Thiết bị sẽ tự động liên kết thành công!
 3. **Trò chuyện & Ra lệnh:**
    - Nhắn tin tự nhiên vào Telegram:
@@ -66,5 +66,5 @@ ken-agent
 ## 🌐 Hệ Sinh Thái & Hỗ Trợ
 
 - **Trang chủ & API:** [https://api.haiphongdeveloper.com](https://api.haiphongdeveloper.com)
-- **Telegram Bot:** [https://t.me/eto_otp_bot](https://t.me/eto_otp_bot)
+- **Telegram Bot:** [https://t.me/eto_codex_bot](https://t.me/eto_codex_bot)
 - **Bản quyền:** © 2026 Hải Phòng Developer (HPD Ecosystem).

@@ -19,7 +19,7 @@ APP_DIR = os.path.expanduser("~/.ken-agent")
 os.makedirs(APP_DIR, exist_ok=True)
 CONFIG_FILE = os.path.join(APP_DIR, "config.json")
 DEFAULT_SERVER_URL = "wss://api.haiphongdeveloper.com/ws/hermes-relay"
-CURRENT_VERSION = "2.3.0"
+CURRENT_VERSION = "2.3.1"
 
 def check_for_updates():
     """Kiểm tra phiên bản mới nhất từ PyPI trong nền và thông báo"""
@@ -198,7 +198,7 @@ async def start_relay_loop(token, server_url):
                         print("┌" + "─" * 78 + "┐")
                         print(f"│  👤 Tài khoản: {name:<61} │")
                         if code:
-                            tele_link = f"https://t.me/eto_otp_bot?start=pair_{code}"
+                            tele_link = f"https://t.me/eto_codex_bot?start=pair_{code}"
 
                             print(f"│  👉 MÃ GHÉP ĐÔI CỦA BẠN: [ \033[1;32m{code}\033[0m ]                                              │")
                             print("├" + "─" * 78 + "┤")
@@ -212,7 +212,7 @@ async def start_relay_loop(token, server_url):
                                 with urllib.request.urlopen(req, timeout=3) as resp:
                                     lines = resp.read().decode("utf-8").strip().split("\n")
                                     print("\n   \033[1;36m[ 📱 TELEGRAM BOT (1-Click Tự Động Kết Nối) ]\033[0m")
-                                    print(f"   👉 Quét mã bằng Camera điện thoại để mở bot @eto_otp_bot:")
+                                    print(f"   👉 Quét mã bằng Camera điện thoại để mở bot @eto_codex_bot:")
                                     for line in lines:
                                         print("   " + line)
                                     print()
@@ -280,7 +280,7 @@ def main():
   ken-agent -v                       Xem phiên bản hiện tại
 
 Kênh điều khiển & Ghép đôi:
-  • Telegram Bot : https://t.me/eto_otp_bot (1-Click Tự Động Kết Nối)
+  • Telegram Bot : https://t.me/eto_codex_bot (1-Click Tự Động Kết Nối)
   • Dashboard    : https://api.haiphongdeveloper.com
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter
