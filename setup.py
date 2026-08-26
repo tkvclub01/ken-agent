@@ -1,10 +1,13 @@
 from setuptools import setup, find_packages
 
+with open("README.md", "r", encoding="utf-8") as fh:
+    long_description = fh.read()
+
 setup(
     name="ken-agent",
     version="2.3.8",
     description="KEN AGENT - Autonomous Desktop AI Runner (HPD Ecosystem)",
-    long_description=open("README.md", "r", encoding="utf-8").read(),
+    long_description=long_description,
     long_description_content_type="text/markdown",
     author="Do Thanh Tan",
     author_email="icoquangninh@gmail.com",
