@@ -19,7 +19,7 @@ APP_DIR = os.path.expanduser("~/.ken-agent")
 os.makedirs(APP_DIR, exist_ok=True)
 CONFIG_FILE = os.path.join(APP_DIR, "config.json")
 DEFAULT_SERVER_URL = "wss://api.haiphongdeveloper.com/ws/hermes-relay"
-CURRENT_VERSION = "2.3.5"
+CURRENT_VERSION = "2.3.6"
 
 def parse_version(v_str):
     """Chuyển chuỗi version thành tuple số để so sánh chính xác: (2, 3, 4) > (2, 3, 2)"""
@@ -48,7 +48,7 @@ def check_for_updates():
         pass
 
 def perform_update():
-    """Thực hiện cập nhật ken-agent lên phiên bản mới nhất"""
+    """Thực hiện cập nhật ken-agent lên phiên bản mới nhất (bỏ qua cache pip)"""
     print("\n" + "=" * 60)
     print(" ⚡ ĐANG CẬP NHẬT KEN AGENT...")
     print("=" * 60)
@@ -58,8 +58,8 @@ def perform_update():
             venv_pip = os.path.expanduser("~/.ken-agent/venv/Scripts/pip.exe")
 
         pip_cmd = venv_pip if os.path.exists(venv_pip) else f'"{sys.executable}" -m pip'
-        cmd = f'{pip_cmd} install --upgrade ken-agent'
-        print(f"📦 Đang tải và cài đặt bản mới nhất từ PyPI...")
+        cmd = f'{pip_cmd} install --no-cache-dir --upgrade ken-agent'
+        print(f"📦 Đang tải và cài đặt bản mới nhất từ PyPI (bỏ qua cache)...")
         subprocess.check_call(cmd, shell=True)
         print("\n🎉 CẬP NHẬT THÀNH CÔNG! Hãy khởi chạy lại: ken-agent\n")
     except Exception as e:
@@ -115,10 +115,15 @@ async def run_command_on_system(command):
         out = stdout.decode('utf-8', errors='ignore').strip()
         err = stderr.decode('utf-8', errors='ignore').strip()
 
-        if proc.returncode == 0:
-            return out if out else "✅ Lệnh thực thi thành công (Không có output)."
+        # Nếu có output chuẩn thì ưu tiên trả về out (kể cả exitcode != 0 do warning/pipe)
+        if out:
+            return out
+        elif err:
+            return f"⚠️ Lỗi (Mã {proc.returncode}):\n{err}"
+        elif proc.returncode == 0:
+            return "✅ Lệnh thực thi thành công (Không có output)."
         else:
-            return f"⚠️ Lỗi (Mã {proc.returncode}):\n{err if err else out}"
+            return f"⚠️ Lỗi thực thi (Mã {proc.returncode})"
     except Exception as e:
         return f"❌ Lỗi thực thi hệ thống: {str(e)}"
 
@@ -277,6 +282,8 @@ async def start_relay_loop(token, server_url):
                             "task_id": task_id,
                             "platform": platform,
                             "user_channel_id": user_channel_id,
+                            "prompt": prompt,
+                            "ai_plan": ai_plan,
                             "text": output
                         }))
 
