@@ -19,7 +19,7 @@ APP_DIR = os.path.expanduser("~/.ken-agent")
 os.makedirs(APP_DIR, exist_ok=True)
 CONFIG_FILE = os.path.join(APP_DIR, "config.json")
 DEFAULT_SERVER_URL = "wss://api.haiphongdeveloper.com/ws/hermes-relay"
-CURRENT_VERSION = "2.3.6"
+CURRENT_VERSION = "2.3.8"
 
 def parse_version(v_str):
     """Chuyển chuỗi version thành tuple số để so sánh chính xác: (2, 3, 4) > (2, 3, 2)"""
@@ -300,6 +300,160 @@ async def start_relay_loop(token, server_url):
             print(f"⚠️ Mất kết nối ({str(e)}). Tự động kết nối lại sau {wait_time}s...")
             await asyncio.sleep(wait_time)
 
+def create_tray_icon_image(connected=True):
+    """Tạo biểu tượng MenuBar macOS siêu nét 32x32 với định dạng RGBA chuẩn"""
+    from PIL import Image, ImageDraw
+    img = Image.new('RGBA', (32, 32), color=(0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    # Vẽ vòng tròn viền ngoài
+    draw.ellipse((2, 2, 30, 30), outline=(0, 229, 255, 255), width=2)
+    # Vẽ chấm tròn trạng thái bên trong (Xanh lá sáng / Đỏ sáng)
+    fill_color = (0, 230, 118, 255) if connected else (255, 82, 82, 255)
+    draw.ellipse((8, 8, 24, 24), fill=fill_color)
+    return img
+
+def run_macos_native_statusbar(token, server_url):
+    """Khởi chạy native NSStatusItem bằng PyObjC Cocoa trên macOS với text emoji indicator trực tiếp"""
+    try:
+        import objc
+        from AppKit import (
+            NSApplication, NSApp, NSStatusBar, NSVariableStatusItemLength,
+            NSMenu, NSMenuItem, NSApplicationActivationPolicyAccessory
+        )
+        from Foundation import NSObject
+        import threading
+        import webbrowser
+
+        app = NSApplication.sharedApplication()
+        app.setActivationPolicy_(NSApplicationActivationPolicyAccessory)
+
+        status_bar = NSStatusBar.systemStatusBar()
+        # Tạo Status Item với độ dài tự co giãn theo nội dung
+        status_item = status_bar.statusItemWithLength_(-1) # -1 = NSVariableStatusItemLength
+
+        # Lưu biến toàn cục tránh Garbage Collector giải phóng bộ nhớ
+        global _global_status_item, _global_delegate
+        _global_status_item = status_item
+
+        button = status_item.button()
+        if button:
+            button.setTitle_("🟢 KEN AGENT")
+            button.setToolTip_("KEN AGENT - Đang online kết nối Telegram")
+        else:
+            # Fallback nếu macOS cũ không có button()
+            status_item.setTitle_("🟢 KEN AGENT")
+
+        menu = NSMenu.alloc().init()
+
+        item_title = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_("⚡ KEN AGENT: Đang chạy ngầm", None, "")
+        item_title.setEnabled_(False)
+        menu.addItem_(item_title)
+
+        class MenuDelegate(NSObject):
+            def openBot_(self, sender):
+                webbrowser.open("https://t.me/eto_codex_bot")
+            def openDash_(self, sender):
+                webbrowser.open("https://api.haiphongdeveloper.com")
+            def quitApp_(self, sender):
+                os._exit(0)
+
+        delegate = MenuDelegate.alloc().init()
+        _global_delegate = delegate
+
+        item_bot = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_("📱 Mở Telegram Bot (@eto_codex_bot)", "openBot:", "")
+        item_bot.setTarget_(delegate)
+        menu.addItem_(item_bot)
+
+        item_dash = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_("🌐 Quản lý Ví Lúa & Token", "openDash:", "")
+        item_dash.setTarget_(delegate)
+        menu.addItem_(item_dash)
+
+        menu.addItem_(NSMenuItem.separatorItem())
+
+        item_quit = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_("❌ Thoát KEN AGENT", "quitApp:", "")
+        item_quit.setTarget_(delegate)
+        menu.addItem_(item_quit)
+
+        status_item.setMenu_(menu)
+
+        # Chạy WSS Relay Loop trong luồng nền
+        def relay_worker():
+            asyncio.run(start_relay_loop(token, server_url))
+
+        t = threading.Thread(target=relay_worker, daemon=True)
+        t.start()
+
+        print("⚡ [MENUBAR] Đã kích hoạt biểu tượng '🟢 KEN AGENT' trên thanh MenuBar macOS.")
+        app.run()
+    except Exception as e:
+        print(f"⚠️ Lỗi khởi chạy Native MenuBar ({e}). Chuyển sang chạy nền...")
+        asyncio.run(start_relay_loop(token, server_url))
+
+def run_tray_icon(token, server_url):
+    """Chạy System Tray Icon: ưu tiên Native Cocoa trên macOS, pystray trên Windows/Linux"""
+    if sys.platform == "darwin":
+        run_macos_native_statusbar(token, server_url)
+        return
+
+    try:
+        import pystray
+        import threading
+
+        # Khởi tạo AppKit NSApplication trên macOS nếu cần
+        if sys.platform == "darwin":
+            try:
+                from AppKit import NSApplication, NSApp, NSApplicationActivationPolicyAccessory
+                app = NSApplication.sharedApplication()
+                app.setActivationPolicy_(NSApplicationActivationPolicyAccessory)
+            except Exception:
+                pass
+
+        icon_holder = {"icon": None}
+
+        def on_quit(icon, item):
+            icon.stop()
+            os._exit(0)
+
+        def on_open_dashboard(icon, item):
+            import webbrowser
+            webbrowser.open("https://api.haiphongdeveloper.com")
+
+        def on_open_bot(icon, item):
+            import webbrowser
+            webbrowser.open("https://t.me/eto_codex_bot")
+
+        menu = pystray.Menu(
+            pystray.MenuItem("⚡ KEN AGENT: Đang chạy ngầm", None, enabled=False),
+            pystray.MenuItem("📱 Mở Telegram Bot (@eto_codex_bot)", on_open_bot),
+            pystray.MenuItem("🌐 Quản lý Ví Lúa & Token", on_open_dashboard),
+            pystray.Menu.SEPARATOR,
+            pystray.MenuItem("❌ Thoát KEN AGENT", on_quit)
+        )
+
+        icon_img = create_tray_icon_image(True)
+        icon = pystray.Icon("ken_agent", icon_img, "KEN AGENT - AI Runner (HPD)", menu)
+        icon_holder["icon"] = icon
+
+        # Chạy WSS Relay Loop trong luồng nền
+        def relay_worker():
+            asyncio.run(start_relay_loop(token, server_url))
+
+        t = threading.Thread(target=relay_worker, daemon=True)
+        t.start()
+
+        # macOS: thông báo toast nhỏ báo đã khởi chạy tray icon
+        if sys.platform == "darwin":
+            try:
+                os.system('osascript -e \'display notification "KEN AGENT đã khởi chạy và kết nối trên MenuBar" with title "KEN AGENT"\'')
+            except Exception:
+                pass
+
+        # Chạy EventLoop của System Tray trên Main Thread (Bắt buộc cho macOS MenuBar)
+        icon.run()
+    except Exception as e:
+        print(f"⚠️ Không thể khởi chạy MenuBar Tray Icon ({e}). Chuyển sang chạy nền...")
+        asyncio.run(start_relay_loop(token, server_url))
+
 def main():
     parser = argparse.ArgumentParser(
         prog="ken-agent",
@@ -414,10 +568,16 @@ Kênh điều khiển & Ghép đôi:
             print("\n👋 Đã thoát.")
             sys.exit(0)
 
-    try:
-        asyncio.run(start_relay_loop(token, server_url))
-    except KeyboardInterrupt:
-        print("\n👋 Đã dừng KEN AGENT.")
+    is_cli = getattr(args, "cli", False)
+    # Nếu chỉ định --cli hoặc môi trường không có UI/Desktop (SSH / Headless Linux server)
+    if is_cli or os.environ.get("SSH_TTY") or (sys.platform.startswith("linux") and not os.environ.get("DISPLAY")):
+        try:
+            asyncio.run(start_relay_loop(token, server_url))
+        except KeyboardInterrupt:
+            print("\n👋 Đã dừng KEN AGENT.")
+    else:
+        # Mặc định khởi chạy Tray Icon trên thanh MenuBar macOS hoặc Taskbar Windows
+        run_tray_icon(token, server_url)
 
 if __name__ == "__main__":
     main()

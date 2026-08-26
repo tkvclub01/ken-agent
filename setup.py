@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="ken-agent",
-    version="2.3.6",
+    version="2.3.8",
     description="KEN AGENT - Autonomous Desktop AI Runner (HPD Ecosystem)",
     long_description=open("README.md", "r", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
@@ -18,6 +18,8 @@ setup(
     python_requires=">=3.8",
     install_requires=[
         "websockets>=11.0",
+        "pystray>=0.19.5",
+        "pillow>=9.0.0",
     ],
     entry_points={
         "console_scripts": [
