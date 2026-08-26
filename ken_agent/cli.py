@@ -19,7 +19,7 @@ APP_DIR = os.path.expanduser("~/.ken-agent")
 os.makedirs(APP_DIR, exist_ok=True)
 CONFIG_FILE = os.path.join(APP_DIR, "config.json")
 DEFAULT_SERVER_URL = "wss://api.haiphongdeveloper.com/ws/hermes-relay"
-CURRENT_VERSION = "2.3.10"
+CURRENT_VERSION = "2.3.11"
 
 def parse_version(v_str):
     """Chuyển chuỗi version thành tuple số để so sánh chính xác: (2, 3, 4) > (2, 3, 2)"""
@@ -387,16 +387,90 @@ def run_macos_native_statusbar(token, server_url):
         print(f"⚠️ Lỗi khởi chạy Native MenuBar ({e}). Chuyển sang chạy nền...")
         asyncio.run(start_relay_loop(token, server_url))
 
+def run_linux_appindicator_tray(token, server_url):
+    """Khởi chạy native Ayatana / AppIndicator System Tray cho Debian/Ubuntu/GNOME"""
+    try:
+        import gi
+        gi.require_version('Gtk', '3.0')
+        from gi.repository import Gtk, GLib
+        try:
+            gi.require_version('AyatanaAppIndicator3', '0.1')
+            from gi.repository import AyatanaAppIndicator3 as appindicator
+        except Exception:
+            gi.require_version('AppIndicator3', '0.1')
+            from gi.repository import AppIndicator3 as appindicator
+
+        import threading
+        import webbrowser
+
+        # Lưu ảnh icon tạm thời
+        icon_path = os.path.join(APP_DIR, "tray_icon.png")
+        try:
+            img = create_tray_icon_image(True)
+            img.save(icon_path, "PNG")
+        except Exception:
+            icon_path = "applications-system"
+
+        indicator = appindicator.Indicator.new(
+            "ken_agent",
+            icon_path,
+            appindicator.IndicatorCategory.APPLICATION_STATUS
+        )
+        indicator.set_status(appindicator.IndicatorStatus.ACTIVE)
+
+        menu = Gtk.Menu()
+
+        item_status = Gtk.MenuItem(label="⚡ KEN AGENT: Đang chạy ngầm")
+        item_status.set_sensitive(False)
+        menu.append(item_status)
+
+        item_bot = Gtk.MenuItem(label="📱 Mở Telegram Bot (@eto_codex_bot)")
+        item_bot.connect("activate", lambda w: webbrowser.open("https://t.me/eto_codex_bot"))
+        menu.append(item_bot)
+
+        item_dash = Gtk.MenuItem(label="🌐 Quản lý Ví Lúa & Token")
+        item_dash.connect("activate", lambda w: webbrowser.open("https://api.haiphongdeveloper.com"))
+        menu.append(item_dash)
+
+        item_sep = Gtk.SeparatorMenuItem()
+        menu.append(item_sep)
+
+        item_quit = Gtk.MenuItem(label="❌ Thoát KEN AGENT")
+        item_quit.connect("activate", lambda w: os._exit(0))
+        menu.append(item_quit)
+
+        menu.show_all()
+        indicator.set_menu(menu)
+
+        print("⚡ [TRAY] Đã kích hoạt biểu tượng KEN AGENT trên thanh Taskbar/System Tray Linux.")
+
+        # Chạy WSS Relay Loop trong luồng nền
+        def relay_worker():
+            asyncio.run(start_relay_loop(token, server_url))
+
+        t = threading.Thread(target=relay_worker, daemon=True)
+        t.start()
+
+        # Chạy GTK Main Loop trên main thread
+        Gtk.main()
+    except Exception as e:
+        # Nếu không có môi trường GTK hoặc server headless, chuyển sang chạy nền thuần
+        asyncio.run(start_relay_loop(token, server_url))
+
 def run_tray_icon(token, server_url):
-    """Chạy System Tray Icon: ưu tiên Native Cocoa trên macOS, pystray trên Windows. Trên Linux chạy ngầm trực tiếp"""
+    """Chạy System Tray Icon: ưu tiên Native Cocoa trên macOS, AppIndicator trên Linux, pystray trên Windows"""
     if sys.platform == "darwin":
         run_macos_native_statusbar(token, server_url)
         return
 
     if sys.platform.startswith("linux"):
-        # Trên Linux, bỏ qua pystray và chạy thẳng vào Asyncio Relay Daemon
-        asyncio.run(start_relay_loop(token, server_url))
-        return
+        # Trên Linux Desktop, khởi chạy native Ayatana AppIndicator
+        if os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"):
+            run_linux_appindicator_tray(token, server_url)
+            return
+        else:
+            asyncio.run(start_relay_loop(token, server_url))
+            return
 
     # Windows: Khởi chạy pystray trên Taskbar System Tray
     try:
