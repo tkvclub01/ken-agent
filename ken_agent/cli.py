@@ -125,41 +125,48 @@ async def start_relay_loop(token, server_url):
                         code = data.get("pairing_code")
                         paired = data.get("paired_channels", [])
 
-                        print("┌" + "─" * 68 + "┐")
-                        print(f"│  👤 Tài khoản: {name:<51} │")
+                        print("┌" + "─" * 78 + "┐")
+                        print(f"│  👤 Tài khoản: {name:<61} │")
                         if code:
                             tele_link = f"https://t.me/eto_otp_bot?start=pair_{code}"
                             zalo_link = "https://zalo.me/717382562076019145"
 
-                            print(f"│  👉 MÃ GHÉP ĐÔI CỦA BẠN: [ \033[1;32m{code}\033[0m ]                              │")
-                            print("├" + "─" * 68 + "┤")
-                            print("│  📲 QUÉT MÃ QR TELEGRAM DƯỚI ĐÂY ĐỂ TỰ ĐỘNG GHÉP ĐÔI 1-CLICK:     │")
-                            print("└" + "─" * 68 + "┘")
+                            print(f"│  👉 MÃ GHÉP ĐÔI CỦA BẠN: [ \033[1;32m{code}\033[0m ]                                              │")
+                            print("├" + "─" * 78 + "┤")
+                            print("│  📲 QUÉT MÃ QR BẰNG CAMERA ĐIỆN THOẠI ĐỂ KẾT NỐI TỰ ĐỘNG:                   │")
+                            print("└" + "─" * 78 + "┘")
 
-                            # In trực tiếp mã QR ASCII lên terminal
+                            # Tải và hiển thị song song cả 2 mã QR Telegram & Zalo
                             try:
                                 import urllib.request
-                                req = urllib.request.Request(
-                                    f"https://qrenco.de/{tele_link}",
-                                    headers={"User-Agent": "curl/7.68.0"}
-                                )
-                                with urllib.request.urlopen(req, timeout=3) as resp:
-                                    qr_text = resp.read().decode("utf-8")
-                                    for line in qr_text.strip().split("\n"):
-                                        print("   " + line)
+                                def get_qr_lines(url):
+                                    req = urllib.request.Request(f"https://qrenco.de/{url}", headers={"User-Agent": "curl/7.68.0"})
+                                    with urllib.request.urlopen(req, timeout=3) as resp:
+                                        return resp.read().decode("utf-8").strip().split("\n")
+
+                                t_lines = get_qr_lines(tele_link)
+                                z_lines = get_qr_lines(zalo_link)
+
+                                print("\n   \033[1;36m[📱 TELEGRAM 1-CLICK]\033[0m                   \033[1;34m[💬 ZALO BOT KEN AI EDU]\033[0m")
+                                max_lines = max(len(t_lines), len(z_lines))
+                                for i in range(max_lines):
+                                    left = t_lines[i] if i < len(t_lines) else " " * 37
+                                    right = z_lines[i] if i < len(z_lines) else " " * 33
+                                    print(f"   {left}   {right}")
+                                print()
                             except Exception:
                                 pass
 
-                            print("┌" + "─" * 68 + "┐")
-                            print("│  💬 KÊNH KẾT NỐI & CÚ PHÁP:                                        │")
-                            print(f"│  • Telegram : \033[1;36m{tele_link}\033[0m (1-Click)  │")
-                            print(f"│  • Zalo Bot : \033[1;36m{zalo_link}\033[0m (Gửi: \033[1;33m/pair {code}\033[0m)    │")
-                            print(f"│  • WhatsApp : Gửi \033[1;33m/pair {code}\033[0m tới Hotline hỗ trợ                         │")
+                            print("┌" + "─" * 78 + "┐")
+                            print("│  💬 HOẶC KẾT NỐI BẰNG ĐƯỜNG LINK & CÚ PHÁP:                                │")
+                            print(f"│  • Telegram : \033[1;36m{tele_link}\033[0m (1-Click Tự Ghép Đôi) │")
+                            print(f"│  • Zalo Bot : \033[1;34m{zalo_link}\033[0m ➔ Gửi tin nhắn: \033[1;33m/pair {code}\033[0m            │")
+                            print(f"│  • WhatsApp : Gửi tin nhắn: \033[1;33m/pair {code}\033[0m tới Hotline hỗ trợ                 │")
                         else:
-                            print(f"│  ✅ Trạng thái: Đã kết nối với {len(paired)} kênh chat.                      │")
+                            print(f"│  ✅ Trạng thái: Đã kết nối với {len(paired)} kênh chat.                              │")
                             for p in paired:
                                 print(f"│     • {p.get('platform').upper()}: {p.get('user_name')} ({p.get('user_channel_id')})")
-                        print("└" + "─" * 68 + "┘\n")
+                        print("└" + "─" * 78 + "┘\n")
 
                     elif msg_type == "PAIR_SUCCESS":
                         print(f"\n🎉 [GHÉP ĐÔI THÀNH CÔNG] Đã liên kết với {data.get('platform').upper()}: {data.get('user_name')}!")
