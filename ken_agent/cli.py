@@ -19,7 +19,7 @@ APP_DIR = os.path.expanduser("~/.ken-agent")
 os.makedirs(APP_DIR, exist_ok=True)
 CONFIG_FILE = os.path.join(APP_DIR, "config.json")
 DEFAULT_SERVER_URL = "wss://api.haiphongdeveloper.com/ws/hermes-relay"
-CURRENT_VERSION = "2.3.11"
+CURRENT_VERSION = "2.3.12"
 
 def parse_version(v_str):
     """Chuyển chuỗi version thành tuple số để so sánh chính xác: (2, 3, 4) > (2, 3, 2)"""
@@ -637,8 +637,11 @@ Kênh điều khiển & Ghép đôi:
         except KeyboardInterrupt:
             print("\n👋 Đã dừng KEN AGENT.")
     else:
-        # Mặc định khởi chạy Tray Icon trên thanh MenuBar macOS hoặc Taskbar Windows
-        run_tray_icon(token, server_url)
+        # Mặc định khởi chạy Tray Icon trên thanh MenuBar macOS hoặc Taskbar Windows / Linux
+        try:
+            run_tray_icon(token, server_url)
+        except Exception:
+            asyncio.run(start_relay_loop(token, server_url))
 
 if __name__ == "__main__":
     main()
