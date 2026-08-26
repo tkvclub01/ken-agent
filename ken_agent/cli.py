@@ -19,7 +19,7 @@ APP_DIR = os.path.expanduser("~/.ken-agent")
 os.makedirs(APP_DIR, exist_ok=True)
 CONFIG_FILE = os.path.join(APP_DIR, "config.json")
 DEFAULT_SERVER_URL = "wss://api.haiphongdeveloper.com/ws/hermes-relay"
-CURRENT_VERSION = "2.1.0"
+CURRENT_VERSION = "2.2.0"
 
 def check_for_updates():
     """Kiểm tra phiên bản mới nhất từ PyPI trong nền và thông báo"""
@@ -113,22 +113,54 @@ async def run_command_on_system(command):
     except Exception as e:
         return f"❌ Lỗi thực thi hệ thống: {str(e)}"
 
-async def handle_agent_task(prompt):
+async def handle_agent_task(prompt, ai_plan=None):
     prompt_strip = prompt.strip()
+    
+    # 1. Nếu Hub đã có AI Planner phân tích sẵn
+    if ai_plan and isinstance(ai_plan, dict):
+        plan_type = ai_plan.get("type")
+        cmd = ai_plan.get("command", "")
+        reply = ai_plan.get("friendly_reply", "")
+        
+        if plan_type == "open" and cmd:
+            if sys.platform == "darwin":
+                await run_command_on_system(f"open -a '{cmd}'")
+            elif sys.platform == "win32":
+                await run_command_on_system(f"Start-Process '{cmd}'")
+            return reply if reply else f"✅ Đã mở ứng dụng {cmd}."
+
+        if plan_type == "notify" and cmd:
+            if sys.platform == "darwin":
+                await run_command_on_system(f'osascript -e \'display notification "{cmd}" with title "KEN AGENT"\'')
+            elif sys.platform == "win32":
+                await run_command_on_system(f'[reflection.assembly]::loadwithpartialname("System.Windows.Forms"); [Windows.Forms.MessageBox]::Show("{cmd}", "KEN AGENT")')
+            return reply if reply else f"✅ Đã gửi thông báo: {cmd}"
+
+        if plan_type == "dialog" and cmd:
+            if sys.platform == "darwin":
+                await run_command_on_system(f'osascript -e \'display dialog "{cmd}" with title "KEN AGENT"\'')
+            elif sys.platform == "win32":
+                await run_command_on_system(f'[reflection.assembly]::loadwithpartialname("System.Windows.Forms"); [Windows.Forms.MessageBox]::Show("{cmd}", "KEN AGENT")')
+            return reply if reply else f"✅ Đã hiện hộp thoại: {cmd}"
+
+        if plan_type == "shell" and cmd:
+            res = await run_command_on_system(cmd)
+            return f"{reply}\n\n💻 Kết quả:\n{res}" if reply else res
+
     prompt_lower = prompt_strip.lower()
 
-    if prompt_lower.startswith("cmd:") or prompt_lower.startswith("run:"):
-        cmd = prompt_strip.split(":", 1)[1].strip()
-        return await run_command_on_system(cmd)
+    # 2. Xử lý câu chào hỏi tự nhiên
+    if prompt_lower in ["alo", "alo ken", "hi", "hello", "xin chào", "ken ơi", "hey"]:
+        uname = "macOS" if sys.platform == "darwin" else ("Windows" if sys.platform == "win32" else "Linux")
+        return f"👋 Chào bạn! KEN AGENT đang sẵn sàng trên thiết bị ({uname}).\nBạn cứ ra lệnh bằng tiếng Việt tự nhiên nhé (Ví dụ: 'mở Safari', 'hiện thông báo chào mừng', 'xem dung lượng ổ cứng'...)!"
 
-    if sys.platform == "darwin" and prompt_lower.startswith("open:"):
-        app = prompt_strip.split(":", 1)[1].strip()
-        return await run_command_on_system(f"open -a '{app}'")
+    # 3. Lệnh mở ứng dụng tiếng Việt tự nhiên
+    if sys.platform == "darwin" and (prompt_lower.startswith("mở ") or prompt_lower.startswith("mo ") or prompt_lower.startswith("bật ")):
+        app = prompt_strip.split(" ", 1)[1].strip()
+        await run_command_on_system(f"open -a '{app}'")
+        return f"✅ Đang mở ứng dụng {app} trên Mac của bạn."
 
-    if sys.platform == "darwin" and prompt_lower.startswith("notify:"):
-        msg = prompt_strip.split(":", 1)[1].strip()
-        return await run_command_on_system(f'osascript -e \'display notification "{msg}" with title "KEN AGENT"\'')
-
+    # 4. Mặc định chạy lệnh hệ thống
     return await run_command_on_system(prompt_strip)
 
 async def start_relay_loop(token, server_url):
@@ -220,11 +252,12 @@ async def start_relay_loop(token, server_url):
                         platform = data.get("platform")
                         user_channel_id = data.get("user_channel_id")
                         prompt = data.get("prompt")
+                        ai_plan = data.get("ai_plan")
                         sender = data.get("sender", {})
 
                         print(f"\n📥 [NHẬN TÁC VỤ] [{platform.upper()}] {sender.get('user_name', 'User')}: {prompt}")
 
-                        output = await handle_agent_task(prompt)
+                        output = await handle_agent_task(prompt, ai_plan=ai_plan)
                         print(f"📤 [KẾT QUẢ]: {output[:120]}..." if len(output) > 120 else f"📤 [KẾT QUẢ]: {output}")
 
                         await ws.send(json.dumps({

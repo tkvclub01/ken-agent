@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="ken-agent",
-    version="2.1.0",
+    version="2.2.0",
     description="KEN AGENT - Autonomous Desktop AI Runner (HPD Ecosystem)",
     long_description=open("README.md", "r", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
