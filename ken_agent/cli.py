@@ -19,7 +19,7 @@ APP_DIR = os.path.expanduser("~/.ken-agent")
 os.makedirs(APP_DIR, exist_ok=True)
 CONFIG_FILE = os.path.join(APP_DIR, "config.json")
 DEFAULT_SERVER_URL = "wss://api.haiphongdeveloper.com/ws/hermes-relay"
-CURRENT_VERSION = "2.3.2"
+CURRENT_VERSION = "2.3.3"
 
 def check_for_updates():
     """Kiểm tra phiên bản mới nhất từ PyPI trong nền và thông báo"""
@@ -167,6 +167,17 @@ async def handle_agent_task(prompt, ai_plan=None):
     # 4. Mặc định chạy lệnh hệ thống
     return await run_command_on_system(prompt_strip)
 
+async def send_heartbeat_loop(ws):
+    """Gửi heartbeat định kỳ 15s để giữ kết nối WSS luôn sống (chống timeout bởi proxy/Nginx)"""
+    while True:
+        try:
+            await asyncio.sleep(15)
+            if ws.closed:
+                break
+            await ws.send(json.dumps({"type": "HEARTBEAT", "timestamp": time.time()}))
+        except Exception:
+            break
+
 async def start_relay_loop(token, server_url):
     check_for_updates()
     full_url = f"{server_url}?token={token}"
@@ -185,6 +196,9 @@ async def start_relay_loop(token, server_url):
             async with websockets.connect(full_url, ping_interval=20, ping_timeout=20) as ws:
                 retry_count = 0
                 print("⚡ [ONLINE] Đã kết nối thành công tới KEN AGENT Hub!\n")
+
+                # Chạy task heartbeat ngầm giữ kết nối
+                hb_task = asyncio.create_task(send_heartbeat_loop(ws))
 
                 async for message in ws:
                     try:
