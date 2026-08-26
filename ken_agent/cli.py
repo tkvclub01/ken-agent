@@ -19,17 +19,26 @@ APP_DIR = os.path.expanduser("~/.ken-agent")
 os.makedirs(APP_DIR, exist_ok=True)
 CONFIG_FILE = os.path.join(APP_DIR, "config.json")
 DEFAULT_SERVER_URL = "wss://api.haiphongdeveloper.com/ws/hermes-relay"
-CURRENT_VERSION = "2.3.3"
+CURRENT_VERSION = "2.3.4"
+
+def parse_version(v_str):
+    """Chuyển chuỗi version thành tuple số để so sánh chính xác: (2, 3, 4) > (2, 3, 2)"""
+    try:
+        import re
+        nums = [int(n) for n in re.findall(r'\d+', str(v_str))]
+        return tuple(nums)
+    except Exception:
+        return (0, 0, 0)
 
 def check_for_updates():
-    """Kiểm tra phiên bản mới nhất từ PyPI trong nền và thông báo"""
+    """Kiểm tra phiên bản mới nhất từ PyPI trong nền và thông báo CHỈ KHI latest > CURRENT_VERSION"""
     try:
         import urllib.request
         req = urllib.request.Request("https://pypi.org/pypi/ken-agent/json", headers={"User-Agent": "ken-agent-cli"})
         with urllib.request.urlopen(req, timeout=2) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             latest = data.get("info", {}).get("version")
-            if latest and latest != CURRENT_VERSION:
+            if latest and parse_version(latest) > parse_version(CURRENT_VERSION):
                 print("\n" + "!" * 68)
                 print(f" 🚀 ĐÃ CÓ BẢN CẬP NHẬT MỚI: v{latest} (Phiên bản của bạn: v{CURRENT_VERSION})")
                 print(" 👉 Hãy gõ lệnh sau để nâng cấp ngay:")
