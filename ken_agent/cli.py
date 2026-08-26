@@ -19,7 +19,7 @@ APP_DIR = os.path.expanduser("~/.ken-agent")
 os.makedirs(APP_DIR, exist_ok=True)
 CONFIG_FILE = os.path.join(APP_DIR, "config.json")
 DEFAULT_SERVER_URL = "wss://api.haiphongdeveloper.com/ws/hermes-relay"
-CURRENT_VERSION = "2.3.20"
+CURRENT_VERSION = "2.3.21"
 
 def parse_version(v_str):
     """Chuyển chuỗi version thành tuple số để so sánh chính xác: (2, 3, 4) > (2, 3, 2)"""
@@ -635,7 +635,8 @@ Kênh điều khiển & Ghép đôi:
         save_config(config)
         return
 
-    token = args.token or getattr(args, "token", None) or config.get("token", "")
+    # Nạp token ưu tiên từ args -> env -> config.json
+    token = args.token or getattr(args, "token", None) or os.environ.get("KEN_AGENT_TOKEN", "") or config.get("token", "")
     server_url = getattr(args, "server", None) or config.get("server_url", DEFAULT_SERVER_URL)
 
     if not token or token == "YOUR_CLIENT_TOKEN_HERE":
