@@ -19,7 +19,7 @@ APP_DIR = os.path.expanduser("~/.ken-agent")
 os.makedirs(APP_DIR, exist_ok=True)
 CONFIG_FILE = os.path.join(APP_DIR, "config.json")
 DEFAULT_SERVER_URL = "wss://api.haiphongdeveloper.com/ws/hermes-relay"
-CURRENT_VERSION = "2.3.15"
+CURRENT_VERSION = "2.3.16"
 
 def parse_version(v_str):
     """Chuyển chuỗi version thành tuple số để so sánh chính xác: (2, 3, 4) > (2, 3, 2)"""
@@ -413,14 +413,9 @@ def run_linux_appindicator_tray(token, server_url):
 
         indicator = appindicator.Indicator.new(
             "ken_agent_indicator",
-            "emblem-default",
+            "security-high-symbolic",
             appindicator.IndicatorCategory.APPLICATION_STATUS
         )
-        if os.path.exists(icon_path):
-            indicator.set_icon_theme_path(APP_DIR)
-            indicator.set_icon_full("tray_icon", "KEN AGENT")
-        else:
-            indicator.set_icon_full("emblem-default", "KEN AGENT")
         indicator.set_status(appindicator.IndicatorStatus.ACTIVE)
 
         menu = Gtk.Menu()
