@@ -19,7 +19,7 @@ APP_DIR = os.path.expanduser("~/.ken-agent")
 os.makedirs(APP_DIR, exist_ok=True)
 CONFIG_FILE = os.path.join(APP_DIR, "config.json")
 DEFAULT_SERVER_URL = "wss://api.haiphongdeveloper.com/ws/hermes-relay"
-CURRENT_VERSION = "2.3.16"
+CURRENT_VERSION = "2.3.17"
 
 def parse_version(v_str):
     """Chuyển chuỗi version thành tuple số để so sánh chính xác: (2, 3, 4) > (2, 3, 2)"""
@@ -299,15 +299,35 @@ async def start_relay_loop(token, server_url):
             await asyncio.sleep(wait_time)
 
 def create_tray_icon_image(connected=True):
-    """Tạo biểu tượng MenuBar macOS siêu nét 32x32 với định dạng RGBA chuẩn"""
+    """Tạo biểu tượng Robot Ken siêu nét với định dạng RGBA chuẩn (Cyberpunk Robot Face)"""
     from PIL import Image, ImageDraw
-    img = Image.new('RGBA', (32, 32), color=(0, 0, 0, 0))
+    size = 64
+    img = Image.new('RGBA', (size, size), color=(0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
-    # Vẽ vòng tròn viền ngoài
-    draw.ellipse((2, 2, 30, 30), outline=(0, 229, 255, 255), width=2)
-    # Vẽ chấm tròn trạng thái bên trong (Xanh lá sáng / Đỏ sáng)
-    fill_color = (0, 230, 118, 255) if connected else (255, 82, 82, 255)
-    draw.ellipse((8, 8, 24, 24), fill=fill_color)
+    scale = size / 128.0
+
+    # 1. Anten trên đầu
+    draw.line((64*scale, 28*scale, 64*scale, 10*scale), fill=(0, 229, 255, 255), width=max(1, int(4*scale)))
+    draw.ellipse((58*scale, 6*scale, 70*scale, 18*scale), fill=(0, 255, 136, 255), outline=(0, 229, 255, 255), width=max(1, int(2*scale)))
+
+    # 2. Đầu Robot bo góc
+    draw.rounded_rectangle((24*scale, 28*scale, 104*scale, 98*scale), radius=int(18*scale), fill=(20, 28, 45, 255), outline=(0, 229, 255, 255), width=max(1, int(4*scale)))
+
+    # 3. Tai Robot 2 bên
+    draw.rounded_rectangle((14*scale, 50*scale, 24*scale, 76*scale), radius=int(4*scale), fill=(0, 229, 255, 255))
+    draw.rounded_rectangle((104*scale, 50*scale, 114*scale, 76*scale), radius=int(4*scale), fill=(0, 229, 255, 255))
+
+    # 4. Kính Màn hình Neon
+    draw.rounded_rectangle((34*scale, 42*scale, 94*scale, 84*scale), radius=int(10*scale), fill=(10, 15, 25, 255), outline=(0, 255, 136, 255), width=max(1, int(2*scale)))
+
+    # 5. Mắt Robot (Xanh Neon rực sáng khi online, đỏ khi mất mạng)
+    eye_color = (0, 255, 136, 255) if connected else (255, 82, 82, 255)
+    draw.ellipse((44*scale, 54*scale, 58*scale, 68*scale), fill=eye_color)
+    draw.ellipse((70*scale, 54*scale, 84*scale, 68*scale), fill=eye_color)
+
+    # 6. Miệng cười Robot
+    draw.line((54*scale, 76*scale, 74*scale, 76*scale), fill=(0, 229, 255, 255), width=max(1, int(3*scale)))
+
     return img
 
 def run_macos_native_statusbar(token, server_url):
@@ -411,11 +431,18 @@ def run_linux_appindicator_tray(token, server_url):
         except Exception:
             pass
 
-        indicator = appindicator.Indicator.new(
+        # Tự động nạp Icon Robot Ken siêu nét vào hicolor icon theme
+        icon_name = "ken-agent"
+        theme_path = os.path.expanduser("~/.local/share/icons/hicolor")
+
+        indicator = appindicator.Indicator.new_with_path(
             "ken_agent_indicator",
-            "security-high-symbolic",
-            appindicator.IndicatorCategory.APPLICATION_STATUS
+            "ken-agent",
+            appindicator.IndicatorCategory.APPLICATION_STATUS,
+            os.path.join(theme_path, "48x48/apps")
         )
+        indicator.set_icon_theme_path(os.path.join(theme_path, "48x48/apps"))
+        indicator.set_icon_full("ken-agent", "KEN AGENT")
         indicator.set_status(appindicator.IndicatorStatus.ACTIVE)
 
         menu = Gtk.Menu()
