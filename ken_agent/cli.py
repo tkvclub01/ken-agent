@@ -213,21 +213,34 @@ async def start_relay_loop(token, server_url):
 def main():
     parser = argparse.ArgumentParser(
         prog="ken-agent",
-        description="KEN AGENT CLI - Trợ lý AI tự hành điều khiển máy tính qua Telegram/Zalo"
+        description="🚀 KEN AGENT CLI - Trợ lý AI tự hành điều khiển máy tính qua Telegram & Zalo (HPD Ecosystem)",
+        epilog="""Ví dụ sử dụng:
+  ken-agent                          Khởi chạy nhanh (sử dụng Token đã lưu hoặc hỏi nhập Token)
+  ken-agent -t eto_tk_xxx            Khởi chạy trực tiếp với API Token
+  ken-agent config -t eto_tk_xxx     Lưu vĩnh viễn API Token vào máy
+  ken-agent config --show            Xem cấu hình hiện tại
+  ken-agent -v                       Xem phiên bản hiện tại
+
+Kênh hỗ trợ & Ghép đôi:
+  • Telegram Bot : https://t.me/eto_otp_bot
+  • Zalo Bot     : https://zalo.me/717382562076019145
+  • Dashboard    : https://api.haiphongdeveloper.com
+""",
+        formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    subparsers = parser.add_subparsers(dest="action", help="Lệnh thao tác")
+    subparsers = parser.add_subparsers(dest="action", help="Lệnh thao tác bổ sung")
 
     start_parser = subparsers.add_parser("start", help="Khởi động KEN AGENT Runner")
     start_parser.add_argument("--token", "-t", type=str, help="API Token tài khoản của bạn")
     start_parser.add_argument("--server", "-s", type=str, help="URL Relay Server")
 
     cfg_parser = subparsers.add_parser("config", help="Cấu hình Token hoặc Server URL")
-    cfg_parser.add_argument("--token", "-t", type=str, help="Lưu Token tài khoản")
+    cfg_parser.add_argument("--token", "-t", type=str, help="Lưu API Token tài khoản vào máy")
     cfg_parser.add_argument("--server", "-s", type=str, help="Lưu Relay Server URL")
-    cfg_parser.add_argument("--show", action="store_true", help="Hiển thị cấu hình hiện tại")
+    cfg_parser.add_argument("--show", action="store_true", help="Hiển thị cấu hình và Token hiện tại")
 
-    parser.add_argument("--token", "-t", type=str, help="API Token để chạy nhanh")
-    parser.add_argument("--version", "-v", action="version", version="KEN AGENT v2.0.6 (HPD Ecosystem 2026)")
+    parser.add_argument("--token", "-t", type=str, help="API Token để khởi chạy ngay")
+    parser.add_argument("--version", "-v", action="version", version="KEN AGENT v2.0.7 (HPD Ecosystem 2026)")
 
     args = parser.parse_args()
     config = load_config()
