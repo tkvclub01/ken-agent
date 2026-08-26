@@ -19,7 +19,7 @@ APP_DIR = os.path.expanduser("~/.ken-agent")
 os.makedirs(APP_DIR, exist_ok=True)
 CONFIG_FILE = os.path.join(APP_DIR, "config.json")
 DEFAULT_SERVER_URL = "wss://api.haiphongdeveloper.com/ws/hermes-relay"
-CURRENT_VERSION = "2.3.19"
+CURRENT_VERSION = "2.3.20"
 
 def parse_version(v_str):
     """Chuyển chuỗi version thành tuple số để so sánh chính xác: (2, 3, 4) > (2, 3, 2)"""
@@ -517,10 +517,10 @@ def run_tray_icon(token, server_url):
         def on_open_bot(icon, item):
             webbrowser.open("https://t.me/eto_codex_bot")
 
-        # Cấu hình Menu tương tác đầy đủ với Default Action khi click đúp / click chuột trái
+        # Cấu hình Menu tương tác
         menu = pystray.Menu(
             pystray.MenuItem("⚡ KEN AGENT: Đang Online", None, enabled=False),
-            pystray.MenuItem("📱 Mở Telegram Bot (@eto_codex_bot)", on_open_bot, default=True),
+            pystray.MenuItem("📱 Mở Telegram Bot (@eto_codex_bot)", on_open_bot),
             pystray.MenuItem("🌐 Quản lý Ví Lúa & Token", on_open_dashboard),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("❌ Thoát KEN AGENT", on_quit)
