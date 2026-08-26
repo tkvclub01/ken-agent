@@ -227,7 +227,7 @@ def main():
     cfg_parser.add_argument("--show", action="store_true", help="Hiển thị cấu hình hiện tại")
 
     parser.add_argument("--token", "-t", type=str, help="API Token để chạy nhanh")
-    parser.add_argument("--version", "-v", action="version", version="KEN AGENT v2.0.0 (HPD Ecosystem 2026)")
+    parser.add_argument("--version", "-v", action="version", version="KEN AGENT v2.0.6 (HPD Ecosystem 2026)")
 
     args = parser.parse_args()
     config = load_config()
