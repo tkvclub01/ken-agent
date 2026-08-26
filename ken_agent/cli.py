@@ -136,24 +136,30 @@ async def start_relay_loop(token, server_url):
                             print("│  📲 QUÉT MÃ QR BẰNG CAMERA ĐIỆN THOẠI ĐỂ KẾT NỐI TỰ ĐỘNG:                   │")
                             print("└" + "─" * 78 + "┘")
 
-                            # Tải và hiển thị song song cả 2 mã QR Telegram & Zalo
+                            # Tải và hiển thị lần lượt từng mã QR (Dọc) để chống dính và điện thoại quét dễ nhất
                             try:
                                 import urllib.request
-                                def get_qr_lines(url):
+                                def print_single_qr(title, url, note):
                                     req = urllib.request.Request(f"https://qrenco.de/{url}", headers={"User-Agent": "curl/7.68.0"})
                                     with urllib.request.urlopen(req, timeout=3) as resp:
-                                        return resp.read().decode("utf-8").strip().split("\n")
+                                        lines = resp.read().decode("utf-8").strip().split("\n")
+                                        print(f"\n   {title}")
+                                        print(f"   {note}")
+                                        for line in lines:
+                                            print("   " + line)
+                                        print()
 
-                                t_lines = get_qr_lines(tele_link)
-                                z_lines = get_qr_lines(zalo_link)
+                                print_single_qr(
+                                    "\033[1;36m[ 📱 MÃ QR 1: TELEGRAM BOT (1-Click Ghép Đôi) ]\033[0m",
+                                    tele_link,
+                                    f"👉 Quét bằng Camera để tự động kết nối với @eto_otp_bot"
+                                )
 
-                                print("\n   \033[1;36m[📱 TELEGRAM 1-CLICK]\033[0m                   \033[1;34m[💬 ZALO BOT KEN AI EDU]\033[0m")
-                                max_lines = max(len(t_lines), len(z_lines))
-                                for i in range(max_lines):
-                                    left = t_lines[i] if i < len(t_lines) else " " * 37
-                                    right = z_lines[i] if i < len(z_lines) else " " * 33
-                                    print(f"   {left}   {right}")
-                                print()
+                                print_single_qr(
+                                    "\033[1;34m[ 💬 MÃ QR 2: ZALO BOT KEN AI EDU ]\033[0m",
+                                    zalo_link,
+                                    f"👉 Quét bằng App Zalo và gửi cú pháp: /pair {code}"
+                                )
                             except Exception:
                                 pass
 
