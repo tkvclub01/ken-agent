@@ -19,7 +19,7 @@ APP_DIR = os.path.expanduser("~/.ken-agent")
 os.makedirs(APP_DIR, exist_ok=True)
 CONFIG_FILE = os.path.join(APP_DIR, "config.json")
 DEFAULT_SERVER_URL = "wss://api.haiphongdeveloper.com/ws/hermes-relay"
-CURRENT_VERSION = "2.3.1"
+CURRENT_VERSION = "2.3.2"
 
 def check_for_updates():
     """Kiểm tra phiên bản mới nhất từ PyPI trong nền và thông báo"""
@@ -127,6 +127,8 @@ async def handle_agent_task(prompt, ai_plan=None):
                 await run_command_on_system(f"open -a '{cmd}'")
             elif sys.platform == "win32":
                 await run_command_on_system(f"Start-Process '{cmd}'")
+            else:
+                await run_command_on_system(f"xdg-open '{cmd}' &")
             return reply if reply else f"✅ Đã mở ứng dụng {cmd}."
 
         if plan_type == "notify" and cmd:
@@ -134,6 +136,8 @@ async def handle_agent_task(prompt, ai_plan=None):
                 await run_command_on_system(f'osascript -e \'display notification "{cmd}" with title "KEN AGENT"\'')
             elif sys.platform == "win32":
                 await run_command_on_system(f'[reflection.assembly]::loadwithpartialname("System.Windows.Forms"); [Windows.Forms.MessageBox]::Show("{cmd}", "KEN AGENT")')
+            else:
+                await run_command_on_system(f'notify-send "KEN AGENT" "{cmd}"')
             return reply if reply else f"✅ Đã gửi thông báo: {cmd}"
 
         if plan_type == "dialog" and cmd:
@@ -145,7 +149,7 @@ async def handle_agent_task(prompt, ai_plan=None):
 
         if plan_type == "shell" and cmd:
             res = await run_command_on_system(cmd)
-            return f"{reply}\n\n💻 Kết quả:\n{res}" if reply else res
+            return f"💻 Kết quả thực thi:\n```\n{res}\n```"
 
     prompt_lower = prompt_strip.lower()
 
