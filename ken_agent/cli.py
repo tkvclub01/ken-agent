@@ -19,6 +19,43 @@ APP_DIR = os.path.expanduser("~/.ken-agent")
 os.makedirs(APP_DIR, exist_ok=True)
 CONFIG_FILE = os.path.join(APP_DIR, "config.json")
 DEFAULT_SERVER_URL = "wss://api.haiphongdeveloper.com/ws/hermes-relay"
+CURRENT_VERSION = "2.1.0"
+
+def check_for_updates():
+    """Kiểm tra phiên bản mới nhất từ PyPI trong nền và thông báo"""
+    try:
+        import urllib.request
+        req = urllib.request.Request("https://pypi.org/pypi/ken-agent/json", headers={"User-Agent": "ken-agent-cli"})
+        with urllib.request.urlopen(req, timeout=2) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            latest = data.get("info", {}).get("version")
+            if latest and latest != CURRENT_VERSION:
+                print("\n" + "!" * 68)
+                print(f" 🚀 ĐÃ CÓ BẢN CẬP NHẬT MỚI: v{latest} (Phiên bản của bạn: v{CURRENT_VERSION})")
+                print(" 👉 Hãy gõ lệnh sau để nâng cấp ngay:")
+                print("    \033[1;32mken-agent update\033[0m")
+                print("!" * 68 + "\n")
+    except Exception:
+        pass
+
+def perform_update():
+    """Thực hiện cập nhật ken-agent lên phiên bản mới nhất"""
+    print("\n" + "=" * 60)
+    print(" ⚡ ĐANG CẬP NHẬT KEN AGENT...")
+    print("=" * 60)
+    try:
+        venv_pip = os.path.expanduser("~/.ken-agent/venv/bin/pip")
+        if sys.platform == "win32":
+            venv_pip = os.path.expanduser("~/.ken-agent/venv/Scripts/pip.exe")
+
+        pip_cmd = venv_pip if os.path.exists(venv_pip) else f'"{sys.executable}" -m pip'
+        cmd = f'{pip_cmd} install --upgrade ken-agent'
+        print(f"📦 Đang tải và cài đặt bản mới nhất từ PyPI...")
+        subprocess.check_call(cmd, shell=True)
+        print("\n🎉 CẬP NHẬT THÀNH CÔNG! Hãy khởi chạy lại: ken-agent\n")
+    except Exception as e:
+        print(f"❌ Cập nhật thất bại: {e}")
+        print("💡 Bạn có thể thử chạy lại: curl -sSL https://api.haiphongdeveloper.com/install.sh | bash\n")
 
 def load_config():
     if os.path.exists(CONFIG_FILE):
@@ -95,6 +132,7 @@ async def handle_agent_task(prompt):
     return await run_command_on_system(prompt_strip)
 
 async def start_relay_loop(token, server_url):
+    check_for_updates()
     full_url = f"{server_url}?token={token}"
     
     print("\n" + "=" * 65)
@@ -217,8 +255,10 @@ def main():
         epilog="""Ví dụ sử dụng:
   ken-agent                          Khởi chạy nhanh (sử dụng Token đã lưu hoặc hỏi nhập Token)
   ken-agent -t eto_tk_xxx            Khởi chạy trực tiếp với API Token
+  ken-agent update                   Cập nhật KEN AGENT lên phiên bản mới nhất
   ken-agent config -t eto_tk_xxx     Lưu vĩnh viễn API Token vào máy
   ken-agent config --show            Xem cấu hình hiện tại
+  ken-agent uninstall                Gỡ cài đặt hoàn toàn KEN AGENT khỏi máy
   ken-agent -v                       Xem phiên bản hiện tại
 
 Kênh hỗ trợ & Ghép đôi:
@@ -234,16 +274,57 @@ Kênh hỗ trợ & Ghép đôi:
     start_parser.add_argument("--token", "-t", type=str, help="API Token tài khoản của bạn")
     start_parser.add_argument("--server", "-s", type=str, help="URL Relay Server")
 
+    subparsers.add_parser("update", help="Cập nhật KEN AGENT lên phiên bản mới nhất từ PyPI")
+
     cfg_parser = subparsers.add_parser("config", help="Cấu hình Token hoặc Server URL")
     cfg_parser.add_argument("--token", "-t", type=str, help="Lưu API Token tài khoản vào máy")
     cfg_parser.add_argument("--server", "-s", type=str, help="Lưu Relay Server URL")
     cfg_parser.add_argument("--show", action="store_true", help="Hiển thị cấu hình và Token hiện tại")
 
+    uninst_parser = subparsers.add_parser("uninstall", help="Gỡ cài đặt và dọn dẹp sạch sẽ KEN AGENT")
+    uninst_parser.add_argument("-y", "--yes", action="store_true", help="Tự động đồng ý gỡ cài đặt mà không cần xác nhận")
+
     parser.add_argument("--token", "-t", type=str, help="API Token để khởi chạy ngay")
-    parser.add_argument("--version", "-v", action="version", version="KEN AGENT v2.0.7 (HPD Ecosystem 2026)")
+    parser.add_argument("--version", "-v", action="version", version=f"KEN AGENT v{CURRENT_VERSION} (HPD Ecosystem 2026)")
 
     args = parser.parse_args()
     config = load_config()
+
+    if args.action == "update":
+        perform_update()
+        return
+
+    if args.action == "uninstall":
+        print("\n" + "=" * 60)
+        print(" 🗑️ GỠ CÀI ĐẶT KEN AGENT")
+        print("=" * 60)
+        if not getattr(args, "yes", False):
+            confirm = input("⚠️ Bạn có chắc chắn muốn gỡ cài đặt KEN AGENT khỏi máy? (y/N): ").strip().lower()
+            if confirm not in ("y", "yes"):
+                print("❌ Đã hủy thao tác gỡ cài đặt.")
+                return
+
+        import shutil
+        app_dir = os.path.expanduser("~/.ken-agent")
+        bin_file = os.path.expanduser("~/.local/bin/ken-agent")
+
+        if os.path.exists(bin_file):
+            try:
+                os.remove(bin_file)
+                print(f"✅ Đã xóa file thực thi: {bin_file}")
+            except Exception as e:
+                print(f"⚠️ Không thể xóa {bin_file}: {e}")
+
+        if os.path.exists(app_dir):
+            try:
+                shutil.rmtree(app_dir)
+                print(f"✅ Đã xóa thư mục dữ liệu & venv: {app_dir}")
+            except Exception as e:
+                print(f"⚠️ Không thể xóa {app_dir}: {e}")
+
+        print("\n🎉 ĐÃ GỠ CÀI ĐẶT KEN AGENT THÀNH CÔNG!")
+        print("Cảm ơn bạn đã sử dụng dịch vụ của https://api.haiphongdeveloper.com\n")
+        return
 
     if args.action == "config":
         if args.show:
