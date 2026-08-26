@@ -1,38 +1,70 @@
-# KEN AGENT
+# 🚀 KEN AGENT - Trợ Lý AI Tự Hành Điều Khiển Máy Tính Cá Nhân
 
-> **Autonomous Desktop AI Runner** — Điều khiển máy tính từ xa qua Telegram/Zalo thuộc hệ sinh thái **HPD Developer**.
+**KEN AGENT** là nền tảng AI Agent thế hệ mới thuộc hệ sinh thái **HPD Ecosystem**, cho phép bạn kết nối và điều khiển máy tính cá nhân (macOS, Windows, Linux) từ xa bằng **ngôn ngữ tự nhiên 100%** thông qua **Telegram Bot** (`@eto_otp_bot`).
 
 ---
 
-## 🚀 Cài Đặt Qua PIP
+## ✨ Điểm Nổi Bật
 
+- 🤖 **Điều Khiển Bằng Ngôn Ngữ Tự Nhiên:** Không cần nhớ cú pháp hay gõ lệnh shell phức tạp. Chỉ cần nói: *"Mở Safari", "Kiểm tra ổ cứng", "Hiện popup thông báo"*... AI sẽ tự động phân tích ý định và thực thi.
+- ⚡ **1-Click Cài Đặt Tự Động:** Chạy 1 dòng lệnh duy nhất để thiết lập toàn bộ môi trường và Runner.
+- 📲 **1-Click Tự Động Ghép Đôi:** Quét mã QR duy nhất hoặc bấm link Deeplink là Telegram tự động ghép đôi thiết bị trong 1 giây.
+- 🔒 **Zero-Leak & Bảo Mật Tuyệt Đối:** Kết nối mã hóa 2 chiều WSS Relay, mô hình AI upstream hoàn toàn ẩn danh, cô lập phiên chat 1-1.
+- 💳 **Tích Hợp Ví Lúa SePay VietQR:** Nạp rút tự động theo mức sử dụng thực tế (Pay-as-you-go).
+
+---
+
+## 💻 Cài Đặt Nhanh 1 Dòng Lệnh
+
+### 🍏 macOS & Linux:
 ```bash
-pip install ken-agent
+curl -sSL https://api.haiphongdeveloper.com/install.sh | bash
 ```
 
----
+### 🪟 Windows (PowerShell):
+```powershell
+irm https://api.haiphongdeveloper.com/install.ps1 | iex
+```
 
-## ⚡ Hướng Dẫn Sử Dụng
-
-### 1. Khởi chạy
+### 📦 Cài Đặt Qua Pip (PyPI):
 ```bash
+pip install --upgrade ken-agent
 ken-agent
 ```
 
-### 2. Chạy nhanh kèm Token
-```bash
-ken-agent --token YOUR_API_TOKEN
-```
+---
 
-### 3. Cấu hình Token vĩnh viễn
-```bash
-ken-agent config --token YOUR_API_TOKEN
-```
+## 🎮 Hướng Dẫn Sử Dụng
+
+1. **Khởi chạy ứng dụng:**
+   ```bash
+   ken-agent
+   ```
+2. **Ghép đôi với Telegram Bot:**
+   - Màn hình Terminal sẽ hiện mã ghép đôi và mã QR.
+   - Bấm vào link hiển thị (hoặc quét mã QR) để mở bot: **[@eto_otp_bot](https://t.me/eto_otp_bot)**
+   - Bấm **Start / Bắt đầu** ➔ Thiết bị sẽ tự động liên kết thành công!
+3. **Trò chuyện & Ra lệnh:**
+   - Nhắn tin tự nhiên vào Telegram:
+     - *"Mở máy tính Calculator"*
+     - *"Bật Safari vào youtube.com"*
+     - *"Hiện popup thông báo: Nhắc tôi 3h chiều họp"*
+     - *"Kiểm tra dung lượng ổ đĩa"*
 
 ---
 
-## 📱 Ghép Đôi Telegram
-1. Khi chạy `ken-agent`, lấy mã ghép đôi (ví dụ: `A8F3K9`).
-2. Nhắn tin tới Bot trên Telegram: `/pair A8F3K9` để liên kết và bắt đầu ra lệnh.
+## 🛠️ Các Lệnh CLI Tiện Ích
 
-- **Website:** https://api.haiphongdeveloper.com
+- `ken-agent` : Khởi chạy Agent.
+- `ken-agent -t <TOKEN>` : Khởi chạy với Token API cụ thể.
+- `ken-agent update` : Cập nhật lên bản mới nhất từ PyPI.
+- `ken-agent config --show` : Xem cấu hình hiện tại.
+- `ken-agent uninstall` : Gỡ cài đặt hoàn toàn khỏi máy.
+
+---
+
+## 🌐 Hệ Sinh Thái & Hỗ Trợ
+
+- **Trang chủ & API:** [https://api.haiphongdeveloper.com](https://api.haiphongdeveloper.com)
+- **Telegram Bot:** [https://t.me/eto_otp_bot](https://t.me/eto_otp_bot)
+- **Bản quyền:** © 2026 Hải Phòng Developer (HPD Ecosystem).

@@ -19,7 +19,7 @@ APP_DIR = os.path.expanduser("~/.ken-agent")
 os.makedirs(APP_DIR, exist_ok=True)
 CONFIG_FILE = os.path.join(APP_DIR, "config.json")
 DEFAULT_SERVER_URL = "wss://api.haiphongdeveloper.com/ws/hermes-relay"
-CURRENT_VERSION = "2.2.0"
+CURRENT_VERSION = "2.3.0"
 
 def check_for_updates():
     """Kiểm tra phiên bản mới nhất từ PyPI trong nền và thông báo"""
@@ -199,45 +199,30 @@ async def start_relay_loop(token, server_url):
                         print(f"│  👤 Tài khoản: {name:<61} │")
                         if code:
                             tele_link = f"https://t.me/eto_otp_bot?start=pair_{code}"
-                            zalo_link = "https://zalo.me/717382562076019145"
 
                             print(f"│  👉 MÃ GHÉP ĐÔI CỦA BẠN: [ \033[1;32m{code}\033[0m ]                                              │")
                             print("├" + "─" * 78 + "┤")
-                            print("│  📲 QUÉT MÃ QR BẰNG CAMERA ĐIỆN THOẠI ĐỂ KẾT NỐI TỰ ĐỘNG:                   │")
+                            print("│  📲 QUÉT MÃ QR DƯỚI ĐÂY BẰNG CAMERA ĐIỆN THOẠI ĐỂ GHÉP ĐÔI TỰ ĐỘNG:          │")
                             print("└" + "─" * 78 + "┘")
 
-                            # Tải và hiển thị lần lượt từng mã QR (Dọc) để chống dính và điện thoại quét dễ nhất
+                            # Tải và hiển thị mã QR Telegram duy nhất siêu nét
                             try:
                                 import urllib.request
-                                def print_single_qr(title, url, note):
-                                    req = urllib.request.Request(f"https://qrenco.de/{url}", headers={"User-Agent": "curl/7.68.0"})
-                                    with urllib.request.urlopen(req, timeout=3) as resp:
-                                        lines = resp.read().decode("utf-8").strip().split("\n")
-                                        print(f"\n   {title}")
-                                        print(f"   {note}")
-                                        for line in lines:
-                                            print("   " + line)
-                                        print()
-
-                                print_single_qr(
-                                    "\033[1;36m[ 📱 MÃ QR 1: TELEGRAM BOT (1-Click Ghép Đôi) ]\033[0m",
-                                    tele_link,
-                                    f"👉 Quét bằng Camera để tự động kết nối với @eto_otp_bot"
-                                )
-
-                                print_single_qr(
-                                    "\033[1;34m[ 💬 MÃ QR 2: ZALO BOT KEN AI EDU ]\033[0m",
-                                    zalo_link,
-                                    f"👉 Quét bằng App Zalo và gửi cú pháp: /pair {code}"
-                                )
+                                req = urllib.request.Request(f"https://qrenco.de/{tele_link}", headers={"User-Agent": "curl/7.68.0"})
+                                with urllib.request.urlopen(req, timeout=3) as resp:
+                                    lines = resp.read().decode("utf-8").strip().split("\n")
+                                    print("\n   \033[1;36m[ 📱 TELEGRAM BOT (1-Click Tự Động Kết Nối) ]\033[0m")
+                                    print(f"   👉 Quét mã bằng Camera điện thoại để mở bot @eto_otp_bot:")
+                                    for line in lines:
+                                        print("   " + line)
+                                    print()
                             except Exception:
                                 pass
 
                             print("┌" + "─" * 78 + "┐")
-                            print("│  💬 HOẶC KẾT NỐI BẰNG ĐƯỜNG LINK & CÚ PHÁP:                                │")
-                            print(f"│  • Telegram : \033[1;36m{tele_link}\033[0m (1-Click Tự Ghép Đôi) │")
-                            print(f"│  • Zalo Bot : \033[1;34m{zalo_link}\033[0m ➔ Gửi tin nhắn: \033[1;33m/pair {code}\033[0m            │")
-                            print(f"│  • WhatsApp : Gửi tin nhắn: \033[1;33m/pair {code}\033[0m tới Hotline hỗ trợ                 │")
+                            print("│  💬 HOẶC BẤM ĐƯỜNG LINK TRỰC TIẾP ĐỂ GHÉP ĐÔI:                             │")
+                            print(f"│  • Telegram : \033[1;36m{tele_link}\033[0m │")
+                            print(f"│  • Cú pháp  : Gửi tin nhắn \033[1;33m/start pair_{code}\033[0m vào Telegram Bot                 │")
                         else:
                             print(f"│  ✅ Trạng thái: Đã kết nối với {len(paired)} kênh chat.                              │")
                             for p in paired:
@@ -284,7 +269,7 @@ async def start_relay_loop(token, server_url):
 def main():
     parser = argparse.ArgumentParser(
         prog="ken-agent",
-        description="🚀 KEN AGENT CLI - Trợ lý AI tự hành điều khiển máy tính qua Telegram & Zalo (HPD Ecosystem)",
+        description="🚀 KEN AGENT CLI - Trợ lý AI tự hành điều khiển máy tính qua Telegram (HPD Ecosystem)",
         epilog="""Ví dụ sử dụng:
   ken-agent                          Khởi chạy nhanh (sử dụng Token đã lưu hoặc hỏi nhập Token)
   ken-agent -t eto_tk_xxx            Khởi chạy trực tiếp với API Token
@@ -294,9 +279,8 @@ def main():
   ken-agent uninstall                Gỡ cài đặt hoàn toàn KEN AGENT khỏi máy
   ken-agent -v                       Xem phiên bản hiện tại
 
-Kênh hỗ trợ & Ghép đôi:
-  • Telegram Bot : https://t.me/eto_otp_bot
-  • Zalo Bot     : https://zalo.me/717382562076019145
+Kênh điều khiển & Ghép đôi:
+  • Telegram Bot : https://t.me/eto_otp_bot (1-Click Tự Động Kết Nối)
   • Dashboard    : https://api.haiphongdeveloper.com
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter
