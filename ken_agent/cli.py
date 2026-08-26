@@ -19,7 +19,7 @@ APP_DIR = os.path.expanduser("~/.ken-agent")
 os.makedirs(APP_DIR, exist_ok=True)
 CONFIG_FILE = os.path.join(APP_DIR, "config.json")
 DEFAULT_SERVER_URL = "wss://api.haiphongdeveloper.com/ws/hermes-relay"
-CURRENT_VERSION = "2.3.21"
+CURRENT_VERSION = "2.3.22"
 
 def parse_version(v_str):
     """Chuyển chuỗi version thành tuple số để so sánh chính xác: (2, 3, 4) > (2, 3, 2)"""
@@ -431,23 +431,22 @@ def run_linux_appindicator_tray(token, server_url):
         except Exception:
             pass
 
-        # Tự động nạp Icon Robot Ken siêu nét vào hicolor icon theme
-        icon_name = "ken-agent"
-        theme_path = os.path.expanduser("~/.local/share/icons/hicolor")
-
+        # Khởi tạo AppIndicator với icon theme path chuẩn xác
+        theme_path = os.path.expanduser("~/.local/share/icons/hicolor/48x48/apps")
         indicator = appindicator.Indicator.new_with_path(
             "ken_agent_indicator",
             "ken-agent",
             appindicator.IndicatorCategory.APPLICATION_STATUS,
-            os.path.join(theme_path, "48x48/apps")
+            theme_path
         )
-        indicator.set_icon_theme_path(os.path.join(theme_path, "48x48/apps"))
-        indicator.set_icon_full("ken-agent", "KEN AGENT")
+        indicator.set_icon_theme_path(theme_path)
         indicator.set_status(appindicator.IndicatorStatus.ACTIVE)
+        indicator.set_title("KEN AGENT")
 
+        # Xây dựng Menu ngữ cảnh
         menu = Gtk.Menu()
 
-        item_status = Gtk.MenuItem(label="⚡ KEN AGENT: Đang chạy ngầm")
+        item_status = Gtk.MenuItem(label="⚡ KEN AGENT: Đang Online")
         item_status.set_sensitive(False)
         menu.append(item_status)
 
@@ -463,7 +462,7 @@ def run_linux_appindicator_tray(token, server_url):
         menu.append(item_sep)
 
         item_quit = Gtk.MenuItem(label="❌ Thoát KEN AGENT")
-        item_quit.connect("activate", lambda w: os._exit(0))
+        item_quit.connect("activate", lambda w: (Gtk.main_quit(), os._exit(0)))
         menu.append(item_quit)
 
         menu.show_all()
