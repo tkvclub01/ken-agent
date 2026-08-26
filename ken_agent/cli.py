@@ -19,7 +19,7 @@ APP_DIR = os.path.expanduser("~/.ken-agent")
 os.makedirs(APP_DIR, exist_ok=True)
 CONFIG_FILE = os.path.join(APP_DIR, "config.json")
 DEFAULT_SERVER_URL = "wss://api.haiphongdeveloper.com/ws/hermes-relay"
-CURRENT_VERSION = "2.3.18"
+CURRENT_VERSION = "2.3.19"
 
 def parse_version(v_str):
     """Chuyển chuỗi version thành tuple số để so sánh chính xác: (2, 3, 4) > (2, 3, 2)"""
@@ -485,12 +485,16 @@ def run_linux_appindicator_tray(token, server_url):
         asyncio.run(start_relay_loop(token, server_url))
 
 def run_tray_icon(token, server_url):
-    """Chạy System Tray Icon đa nền tảng: macOS (Cocoa Native), Linux & Windows (Pystray Native Menu)"""
+    """Chạy System Tray Icon đa nền tảng: macOS (Cocoa Native), Linux (Ayatana AppIndicator / DBusMenu), Windows (Pystray)"""
     if sys.platform == "darwin":
         run_macos_native_statusbar(token, server_url)
         return
 
-    # Windows & Linux: Sử dụng pystray với cơ chế native menu tương tác 100% khi click chuột
+    if sys.platform.startswith("linux"):
+        # Trên Linux Desktop, sử dụng trực tiếp AyatanaAppIndicator + DBusMenu để menu bung ra chuẩn xác 100%
+        if os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"):
+            run_linux_appindicator_tray(token, server_url)
+            return
     try:
         import pystray
         import threading
