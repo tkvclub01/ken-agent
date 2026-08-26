@@ -19,7 +19,7 @@ APP_DIR = os.path.expanduser("~/.ken-agent")
 os.makedirs(APP_DIR, exist_ok=True)
 CONFIG_FILE = os.path.join(APP_DIR, "config.json")
 DEFAULT_SERVER_URL = "wss://api.haiphongdeveloper.com/ws/hermes-relay"
-CURRENT_VERSION = "2.3.14"
+CURRENT_VERSION = "2.3.15"
 
 def parse_version(v_str):
     """Chuyển chuỗi version thành tuple số để so sánh chính xác: (2, 3, 4) > (2, 3, 2)"""
@@ -463,12 +463,18 @@ def run_linux_appindicator_tray(token, server_url):
         asyncio.run(start_relay_loop(token, server_url))
 
 def run_tray_icon(token, server_url):
-    """Chạy System Tray Icon: ưu tiên Native Cocoa trên macOS, pystray/AppIndicator trên Windows & Linux"""
+    """Chạy System Tray Icon: ưu tiên Native Cocoa trên macOS, AppIndicator chuẩn trên Linux, pystray trên Windows"""
     if sys.platform == "darwin":
         run_macos_native_statusbar(token, server_url)
         return
 
-    # Windows & Linux Desktop (GNOME/KDE/XFCE): Sử dụng pystray với cơ chế xlib/appindicator chuẩn
+    if sys.platform.startswith("linux"):
+        # Trên Linux Desktop, sử dụng trực tiếp AyatanaAppIndicator để neo vào GNOME Top Bar
+        if os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"):
+            run_linux_appindicator_tray(token, server_url)
+            return
+
+    # Windows: Sử dụng pystray
     try:
         import pystray
         import threading
@@ -498,7 +504,7 @@ def run_tray_icon(token, server_url):
         icon = pystray.Icon("ken_agent", icon_img, "KEN AGENT - AI Runner (HPD)", menu)
         icon_holder["icon"] = icon
 
-        print("⚡ [TRAY] Đã kích hoạt biểu tượng KEN AGENT trên khay hệ thống (System Tray).")
+        print("⚡ [TRAY] Đã kích hoạt biểu tượng KEN AGENT trên khay hệ thống Windows.")
 
         # Chạy WSS Relay Loop trong luồng nền
         def relay_worker():
