@@ -19,7 +19,7 @@ APP_DIR = os.path.expanduser("~/.ken-agent")
 os.makedirs(APP_DIR, exist_ok=True)
 CONFIG_FILE = os.path.join(APP_DIR, "config.json")
 DEFAULT_SERVER_URL = "wss://api.haiphongdeveloper.com/ws/hermes-relay"
-CURRENT_VERSION = "2.3.4"
+CURRENT_VERSION = "2.3.5"
 
 def parse_version(v_str):
     """Chuyển chuỗi version thành tuple số để so sánh chính xác: (2, 3, 4) > (2, 3, 2)"""
@@ -202,7 +202,7 @@ async def start_relay_loop(token, server_url):
     while True:
         try:
             print(f"\n🔄 Đang kết nối tới Relay Server...")
-            async with websockets.connect(full_url, ping_interval=20, ping_timeout=20) as ws:
+            async with websockets.connect(full_url) as ws:
                 retry_count = 0
                 print("⚡ [ONLINE] Đã kết nối thành công tới KEN AGENT Hub!\n")
 
