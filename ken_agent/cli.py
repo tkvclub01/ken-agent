@@ -80,13 +80,23 @@ def save_config(config_data):
 
 async def run_command_on_system(command):
     try:
+        # Chuẩn hóa executable Python cho đa nền tảng (Windows, macOS, Linux)
+        venv_py = sys.executable
         if sys.platform == "win32":
+            for prefix in ["~/.ken-agent/venv/bin/python", "$HOME/.ken-agent/venv/bin/python", "%USERPROFILE%\\.ken-agent\\venv\\Scripts\\python.exe"]:
+                if command.startswith(prefix):
+                    command = f'& "{venv_py}"' + command[len(prefix):]
+                    break
             proc = await asyncio.create_subprocess_exec(
                 "powershell.exe", "-NoProfile", "-Command", command,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
         elif sys.platform == "darwin":
+            for prefix in ["~/.ken-agent/venv/bin/python", "$HOME/.ken-agent/venv/bin/python"]:
+                if command.startswith(prefix):
+                    command = f'"{venv_py}"' + command[len(prefix):]
+                    break
             if command.startswith("osascript:") or command.startswith("apple:"):
                 script = command.split(":", 1)[1].strip()
                 proc = await asyncio.create_subprocess_exec(
@@ -102,6 +112,10 @@ async def run_command_on_system(command):
                     executable="/bin/zsh"
                 )
         else:
+            for prefix in ["~/.ken-agent/venv/bin/python", "$HOME/.ken-agent/venv/bin/python"]:
+                if command.startswith(prefix):
+                    command = f'"{venv_py}"' + command[len(prefix):]
+                    break
             proc = await asyncio.create_subprocess_shell(
                 command,
                 stdout=asyncio.subprocess.PIPE,
@@ -577,11 +591,50 @@ Kênh điều khiển & Ghép đôi:
     uninst_parser = subparsers.add_parser("uninstall", help="Gỡ cài đặt và dọn dẹp sạch sẽ KEN AGENT")
     uninst_parser.add_argument("-y", "--yes", action="store_true", help="Tự động đồng ý gỡ cài đặt mà không cần xác nhận")
 
+    parser.add_argument("--cli", action="store_true", help="Chạy ở chế độ dòng lệnh Terminal (mặc định mở service ngầm / Tray)")
+    parser.add_argument("--daemon", action="store_true", help="Khởi chạy chạy ngầm hoàn toàn")
+    parser.add_argument("--start", action="store_true", help="Khởi động service chạy ngầm (macOS/Linux)")
+    parser.add_argument("--stop", action="store_true", help="Dừng service chạy ngầm")
+    parser.add_argument("--status", action="store_true", help="Kiểm tra trạng thái service")
     parser.add_argument("--token", "-t", type=str, help="API Token để khởi chạy ngay")
     parser.add_argument("--version", "-v", action="version", version=f"KEN AGENT v{CURRENT_VERSION} (HPD Ecosystem 2026)")
 
     args = parser.parse_args()
     config = load_config()
+
+    if getattr(args, "stop", False):
+        if sys.platform == "darwin":
+            plist = os.path.expanduser("~/Library/LaunchAgents/com.haiphongdeveloper.ken-agent.plist")
+            subprocess.run(["launchctl", "unload", plist], capture_output=True)
+            subprocess.run(["pkill", "-f", "ken_agent"], capture_output=True)
+            print("🛑 Đã dừng service KEN AGENT trên macOS.")
+        else:
+            subprocess.run(["pkill", "-f", "ken_agent"], capture_output=True)
+            print("🛑 Đã dừng tiến trình KEN AGENT.")
+        return
+
+    if getattr(args, "start", False):
+        if sys.platform == "darwin":
+            plist = os.path.expanduser("~/Library/LaunchAgents/com.haiphongdeveloper.ken-agent.plist")
+            if os.path.exists(plist):
+                subprocess.run(["launchctl", "load", "-w", plist], capture_output=True)
+                subprocess.run(["launchctl", "start", "com.haiphongdeveloper.ken-agent"], capture_output=True)
+                print("🚀 Đã khởi động background service com.haiphongdeveloper.ken-agent trên macOS!")
+                return
+        # Fallback background
+        log_file = os.path.expanduser("~/.ken-agent/agent.log")
+        with open(log_file, "a") as out:
+            subprocess.Popen([sys.executable, "-m", "ken_agent", "--cli"], stdout=out, stderr=out, start_new_session=True)
+        print(f"🚀 KEN AGENT đã được chạy ngầm. Xem log tại: {log_file}")
+        return
+
+    if getattr(args, "status", False):
+        res = subprocess.run(["pgrep", "-f", "ken_agent"], capture_output=True, text=True)
+        if res.returncode == 0:
+            print(f"🟢 KEN AGENT đang CHẠY NGẦM (PIDs: {res.stdout.strip()})")
+        else:
+            print("🔴 KEN AGENT hiện KHÔNG chạy.")
+        return
 
     if args.action == "update":
         perform_update()
