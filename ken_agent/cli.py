@@ -35,7 +35,7 @@ DEFAULT_SERVER_URL = "wss://ken.haiphongdeveloper.com/ws/ken-hub"
 AUTH_PATH = os.path.join(APP_DIR, "auth.json")
 HUB_URL = "https://ken.haiphongdeveloper.com"
 HUB_WS_URL = "wss://ken.haiphongdeveloper.com/ws/ken-hub"
-CURRENT_VERSION = "2.7.0"
+CURRENT_VERSION = "2.8.0"
 
 # --- ZERO-TOKEN 1-CLICK DEVICE AUTHENTICATION ---
 def load_device_auth():
@@ -1322,6 +1322,145 @@ async def stream_file_download_p2p(channel, transfer_id, file_path):
                 "error": str(e)
             }))
 
+async def handle_file_op(send_fn, data):
+    op = data.get("op") or data.get("type")
+    user_id = data.get("user_id") or data.get("target_user_id")
+    try:
+        if op in ["CREATE_FOLDER_REQ", "create_folder"]:
+            target_path = os.path.expanduser(data.get("path") or "")
+            if not os.path.isabs(target_path) and data.get("cwd"):
+                target_path = os.path.join(data.get("cwd"), target_path)
+            target_path = os.path.abspath(target_path)
+            os.makedirs(target_path, exist_ok=True)
+            await send_fn({
+                "type": "FILE_OP_RES",
+                "target_user_id": user_id,
+                "op": "create_folder",
+                "path": target_path,
+                "success": True,
+                "message": f"Đã tạo thư mục '{os.path.basename(target_path)}'"
+            })
+
+        elif op in ["CREATE_FILE_REQ", "create_file"]:
+            target_path = os.path.expanduser(data.get("path") or "")
+            if not os.path.isabs(target_path) and data.get("cwd"):
+                target_path = os.path.join(data.get("cwd"), target_path)
+            target_path = os.path.abspath(target_path)
+            os.makedirs(os.path.dirname(target_path), exist_ok=True)
+            content = data.get("content", "")
+            with open(target_path, "w", encoding="utf-8") as f:
+                f.write(content)
+            await send_fn({
+                "type": "FILE_OP_RES",
+                "target_user_id": user_id,
+                "op": "create_file",
+                "path": target_path,
+                "success": True,
+                "message": f"Đã tạo tệp tin '{os.path.basename(target_path)}'"
+            })
+
+        elif op in ["DELETE_ITEM_REQ", "delete_item"]:
+            target_path = os.path.expanduser(data.get("path") or "")
+            target_path = os.path.abspath(target_path)
+            if not os.path.exists(target_path):
+                raise FileNotFoundError(f"Không tìm thấy '{target_path}'")
+            if target_path in ["/", "/root", os.path.expanduser("~")]:
+                raise PermissionError("Không thể xóa thư mục gốc hệ thống.")
+            if os.path.isdir(target_path):
+                shutil.rmtree(target_path)
+            else:
+                os.remove(target_path)
+            await send_fn({
+                "type": "FILE_OP_RES",
+                "target_user_id": user_id,
+                "op": "delete_item",
+                "path": target_path,
+                "success": True,
+                "message": f"Đã xóa '{os.path.basename(target_path)}'"
+            })
+
+        elif op in ["RENAME_ITEM_REQ", "rename_item"]:
+            old_p = os.path.abspath(os.path.expanduser(data.get("old_path") or ""))
+            new_p = os.path.abspath(os.path.expanduser(data.get("new_path") or ""))
+            if not os.path.exists(old_p):
+                raise FileNotFoundError(f"Không tìm thấy '{old_p}'")
+            os.rename(old_p, new_p)
+            await send_fn({
+                "type": "FILE_OP_RES",
+                "target_user_id": user_id,
+                "op": "rename_item",
+                "old_path": old_p,
+                "new_path": new_p,
+                "success": True,
+                "message": f"Đã đổi tên thành '{os.path.basename(new_p)}'"
+            })
+
+        elif op in ["READ_FILE_REQ", "read_file"]:
+            target_path = os.path.abspath(os.path.expanduser(data.get("path") or ""))
+            if not os.path.exists(target_path):
+                raise FileNotFoundError(f"Không tìm thấy tệp '{target_path}'")
+            size = os.path.getsize(target_path)
+            ext = os.path.splitext(target_path)[1].lower()
+            is_image = ext in [".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif", ".bmp", ".ico"]
+
+            if is_image:
+                if size > 15 * 1024 * 1024:
+                    raise ValueError("Ảnh quá lớn để xem trước (>15MB).")
+                with open(target_path, "rb") as f:
+                    b64 = base64.b64encode(f.read()).decode("ascii")
+                mime = "image/svg+xml" if ext == ".svg" else f"image/{ext.replace('.', '')}"
+                await send_fn({
+                    "type": "READ_FILE_RES",
+                    "target_user_id": user_id,
+                    "path": target_path,
+                    "is_image": True,
+                    "mime_type": mime,
+                    "data_url": f"data:{mime};base64,{b64}",
+                    "size": size,
+                    "success": True
+                })
+            else:
+                if size > 3 * 1024 * 1024:
+                    with open(target_path, "r", encoding="utf-8", errors="replace") as f:
+                        lines = [f.readline() for _ in range(1000)]
+                        content = "".join(lines) + "\n\n... [Tệp vượt quá 3MB, đã ngắt ở 1000 dòng đầu] ..."
+                else:
+                    with open(target_path, "r", encoding="utf-8", errors="replace") as f:
+                        content = f.read()
+                await send_fn({
+                    "type": "READ_FILE_RES",
+                    "target_user_id": user_id,
+                    "path": target_path,
+                    "is_image": False,
+                    "content": content,
+                    "size": size,
+                    "success": True
+                })
+
+        elif op in ["DISK_INFO_REQ", "disk_info"]:
+            target_path = os.path.expanduser(data.get("path") or "~")
+            total, used, free = shutil.disk_usage(target_path)
+            pct = round((used / total) * 100, 1)
+            await send_fn({
+                "type": "DISK_INFO_RES",
+                "target_user_id": user_id,
+                "path": target_path,
+                "total": total,
+                "used": used,
+                "free": free,
+                "percent": pct,
+                "success": True
+            })
+
+    except Exception as e:
+        await send_fn({
+            "type": "FILE_OP_RES",
+            "target_user_id": user_id,
+            "op": op,
+            "error": str(e),
+            "success": False
+        })
+
 async def handle_list_dir_p2p(channel, req_path, cwd=None):
     base_dir = os.path.join(cwd, req_path) if (cwd and not os.path.isabs(req_path)) else req_path
     base_dir = os.path.abspath(base_dir)
@@ -1554,6 +1693,16 @@ async def handle_webrtc_signal(ws, data):
                                 loop
                             )
 
+                        elif m_type in ["CREATE_FOLDER_REQ", "DELETE_ITEM_REQ", "RENAME_ITEM_REQ", "READ_FILE_REQ", "DISK_INFO_REQ", "CREATE_FILE_REQ"]:
+                            async def send_dc(res_obj):
+                                if channel and getattr(channel, 'readyState', None) == "open":
+                                    channel.send(json.dumps(res_obj))
+                            loop = asyncio.get_running_loop()
+                            asyncio.run_coroutine_threadsafe(
+                                handle_file_op(send_dc, m),
+                                loop
+                            )
+
                 except Exception as ex:
                     print(f"⚠️ [P2P DC Message Error]: {ex}")
 
@@ -1665,6 +1814,11 @@ async def start_relay_loop(auth_data, server_url=None):
                         req_path = os.path.expanduser(data.get("path", ".") or ".")
                         cwd = data.get("cwd")
                         asyncio.create_task(handle_list_dir_ws(ws, data.get("user_id"), req_path, cwd))
+
+                    elif msg_type in ["CREATE_FOLDER_REQ", "DELETE_ITEM_REQ", "RENAME_ITEM_REQ", "READ_FILE_REQ", "DISK_INFO_REQ", "CREATE_FILE_REQ"]:
+                        async def send_ws(res_obj):
+                            await ws.send(json.dumps(res_obj))
+                        asyncio.create_task(handle_file_op(send_ws, data))
 
                     elif msg_type == "FILE_DOWNLOAD_REQ":
                         req_path = os.path.expanduser(data.get("path", ""))

@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="vi" class="dark h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KEN AGENT - Trợ Lý AI Cục Bộ</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Marked.js for Markdown parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#ecfeff',
+              100: '#cffafe',
+              400: '#22d3ee',
+              500: '#06b6d4',
+              600: '#0891b2',
+            },
+            slate: {
+              850: '#111827',
+              900: '#0f172a',
+              950: '#070b14',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+    /* Markdown Styling */
+    .prose-ken { color: #e2e8f0; line-height: 1.65; font-size: 0.95rem; }
+    .prose-ken p { margin-bottom: 0.75rem; }
+    .prose-ken p:last-child { margin-bottom: 0; }
+    .prose-ken h1, .prose-ken h2, .prose-ken h3, .prose-ken h4 { color: #f8fafc; font-weight: 700; margin-top: 1rem; margin-bottom: 0.5rem; }
+    .prose-ken h1 { font-size: 1.35rem; }
+    .prose-ken h2 { font-size: 1.2rem; }
+    .prose-ken h3 { font-size: 1.05rem; }
+    .prose-ken ul { list-style-type: disc; padding-left: 1.25rem; margin-bottom: 0.75rem; }
+    .prose-ken ol { list-style-type: decimal; padding-left: 1.25rem; margin-bottom: 0.75rem; }
+    .prose-ken li { margin-bottom: 0.25rem; }
+    .prose-ken code { background: rgba(15, 23, 42, 0.8); color: #38bdf8; padding: 0.15rem 0.35rem; border-radius: 0.25rem; font-family: monospace; font-size: 0.85em; border: 1px solid rgba(56, 189, 248, 0.2); }
+    .prose-ken pre { background: #070b14; border: 1px solid #1e293b; border-radius: 0.5rem; padding: 0.85rem; overflow-x: auto; margin: 0.75rem 0; position: relative; }
+    .prose-ken pre code { background: transparent; padding: 0; border: none; color: #cbd5e1; font-size: 0.875rem; }
+    .prose-ken blockquote { border-left: 3px solid #06b6d4; padding-left: 0.85rem; color: #94a3b8; margin: 0.75rem 0; font-style: italic; }
+    .prose-ken table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 0.875rem; }
+    .prose-ken th, .prose-ken td { border: 1px solid #334155; padding: 0.4rem 0.6rem; text-align: left; }
+    .prose-ken th { background: #1e293b; color: #f1f5f9; font-weight: 600; }
+    .prose-ken a { color: #38bdf8; text-decoration: underline; }
+    .prose-ken a:hover { color: #7dd3fc; }
+
+    /* Drag and drop overlay */
+    .drag-active { outline: 2px dashed #06b6d4; outline-offset: -4px; background-color: rgba(6, 182, 212, 0.05) !important; }
+  </style>
+</head>
+<body class="h-full bg-slate-950 text-slate-100 flex flex-col font-sans overflow-hidden select-none">
+
+  <!-- Header -->
+  <header class="h-14 border-b border-slate-800 bg-slate-900/90 backdrop-blur px-4 flex items-center justify-between shrink-0 z-10">
+    <div class="flex items-center gap-3">
+      <button id="toggleSidebarBtn" class="md:hidden text-slate-400 hover:text-white p-1 rounded-lg">
+        <i class="fa-solid fa-bars text-lg"></i>
+      </button>
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 to-emerald-400 flex items-center justify-center text-slate-950 font-black shadow-lg shadow-cyan-500/20">
+          <i class="fa-solid fa-robot text-sm"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-sm text-white tracking-wide">KEN AGENT</span>
+            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-semibold">LOCAL WEB</span>
+          </div>
+          <p class="text-[10px] text-slate-400 font-mono flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span id="daemonStatusText">Đang chạy ngầm :18765</span>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right actions -->
+    <div class="flex items-center gap-2">
+      <div id="tokenBadge" class="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-xs text-slate-300">
+        <i class="fa-solid fa-key text-cyan-400 text-[11px]"></i>
+        <span id="tokenNameDisplay" class="font-medium max-w-[120px] truncate">Đang tải...</span>
+      </div>
+      <a href="https://api.haiphongdeveloper.com" target="_blank" class="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-semibold transition">
+        <i class="fa-solid fa-wallet text-[11px]"></i>
+        <span>Ví Lúa</span>
+      </a>
+      <a href="https://ken.haiphongdeveloper.com" target="_blank" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700 transition" title="Mở Web Hub Điều Khiển Từ Xa">
+        <i class="fa-solid fa-tower-broadcast text-base"></i>
+      </a>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <div class="flex flex-1 overflow-hidden relative">
+
+    <!-- Sidebar: Sessions List -->
+    <aside id="sidebar" class="w-72 border-r border-slate-800 bg-slate-900/60 flex flex-col shrink-0 transition-all duration-200 z-20 absolute md:static inset-y-0 left-0 -translate-x-full md:translate-x-0 shadow-2xl md:shadow-none">
+      
+      <!-- New Chat Button -->
+      <div class="p-3 border-b border-slate-800/80">
+        <button id="newSessionBtn" class="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-lg shadow-cyan-900/30 transition">
+          <i class="fa-solid fa-plus"></i>
+          <span>Cuộc Trò Chuyện Mới</span>
+        </button>
+      </div>
+
+      <!-- Search Sessions -->
+      <div class="px-3 pt-2.5 pb-1">
+        <div class="relative">
+          <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2.5 text-xs text-slate-500"></i>
+          <input id="sessionSearchInput" type="text" placeholder="Tìm kiếm phiên chat..." class="w-full bg-slate-950 border border-slate-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500 transition">
+        </div>
+      </div>
+
+      <!-- Sessions Scroll Container -->
+      <div id="sessionsList" class="flex-1 overflow-y-auto p-2 space-y-1 select-text">
+        <!-- Injected via JS -->
+      </div>
+
+      <!-- Sidebar Footer -->
+      <div class="p-3 border-t border-slate-800 bg-slate-950/40 text-[11px] text-slate-400 flex items-center justify-between">
+        <div class="flex items-center gap-1.5 text-emerald-400">
+          <i class="fa-solid fa-shield-halved text-xs"></i>
+          <span>Media Cục Bộ 100%</span>
+        </div>
+        <button id="refreshSessionsBtn" class="text-slate-500 hover:text-slate-300 p-1" title="Làm mới">
+          <i class="fa-solid fa-rotate-right"></i>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Overlay on Mobile for Sidebar -->
+    <div id="sidebarOverlay" class="hidden fixed inset-0 bg-black/50 z-10 md:hidden"></div>
+
+    <!-- Main Chat Pane -->
+    <main class="flex-1 flex flex-col bg-slate-950 overflow-hidden relative" id="dropZone">
+
+      <!-- Active Session Top Bar -->
+      <div class="h-11 border-b border-slate-800/80 bg-slate-900/40 px-4 flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-2 overflow-hidden">
+          <i class="fa-regular fa-comment-dots text-cyan-400 text-xs"></i>
+          <span id="activeSessionTitle" class="font-bold text-xs text-slate-200 truncate cursor-pointer hover:text-cyan-300" title="Bấm để đổi tên">Phiên Trò Chuyện</span>
+          <button id="renameSessionBtn" class="text-slate-500 hover:text-slate-300 text-xs p-1" title="Đổi tên phiên">
+            <i class="fa-solid fa-pen"></i>
+          </button>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="clearMessagesBtn" class="text-slate-400 hover:text-amber-400 text-xs px-2 py-1 rounded hover:bg-slate-800 transition flex items-center gap-1" title="Xóa toàn bộ tin nhắn trong phiên này">
+            <i class="fa-solid fa-broom"></i>
+            <span class="hidden sm:inline">Dọn Sạch</span>
+          </button>
+          <button id="deleteSessionBtn" class="text-slate-400 hover:text-red-400 text-xs px-2 py-1 rounded hover:bg-slate-800 transition flex items-center gap-1" title="Xóa phiên chat này">
+            <i class="fa-solid fa-trash-can"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Messages Stream Area -->
+      <div id="messagesContainer" class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 select-text">
+        <!-- Injected via JS -->
+      </div>
+
+      <!-- Input Shelf: Attached Media Previews -->
+      <div id="mediaShelf" class="hidden px-4 pt-2 bg-slate-900/90 border-t border-slate-800/80 flex items-center gap-2 overflow-x-auto pb-2">
+        <!-- Previews injected via JS -->
+      </div>
+
+      <!-- Input Footer Box -->
+      <div class="p-3 sm:p-4 bg-slate-900/90 border-t border-slate-800/80">
+        <div class="max-w-4xl mx-auto">
+          <div class="relative bg-slate-950 border border-slate-800 rounded-2xl p-2.5 focus-within:border-cyan-500/80 shadow-xl transition-all">
+            
+            <textarea id="promptInput" rows="1" placeholder="Nhập yêu cầu... (Shift+Enter để xuống dòng, Enter để gửi, Ctrl+V dán ảnh)" 
+              class="w-full bg-transparent text-slate-100 placeholder-slate-500 text-sm focus:outline-none resize-none max-h-48 min-h-[44px] py-1.5 px-2 select-text"></textarea>
+
+            <div class="flex items-center justify-between pt-2 border-t border-slate-800/50 mt-1">
+              <div class="flex items-center gap-1.5">
+                <!-- File upload button -->
+                <button id="attachBtn" type="button" class="p-2 text-slate-400 hover:text-cyan-400 hover:bg-slate-900 rounded-xl transition" title="Đính kèm tệp hoặc ảnh cục bộ">
+                  <i class="fa-solid fa-paperclip text-sm"></i>
+                </button>
+                <input type="file" id="fileInput" class="hidden" multiple accept="image/*,video/*,audio/*,.pdf,.txt,.py,.js,.json,.docx,.xlsx,.pptx">
+
+                <span class="text-[11px] text-slate-500 hidden sm:inline-flex items-center gap-1">
+                  <i class="fa-solid fa-lock text-[10px]"></i>
+                  <span>Media lưu tại <code>~/.ken-agent/media/</code></span>
+                </span>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <button id="sendBtn" class="px-3.5 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-cyan-500/20 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                  <span>Gửi</span>
+                  <i class="fa-solid fa-arrow-up text-xs"></i>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+  </div>
+
+  <!-- Image Lightbox Modal -->
+  <div id="lightboxModal" class="hidden fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+    <button id="closeLightbox" class="absolute top-4 right-4 text-white hover:text-red-400 text-2xl p-2">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+    <img id="lightboxImg" src="" class="max-w-full max-h-[90vh] object-contain rounded-xl shadow-2xl border border-slate-700">
+  </div>
+
+  <!-- Client Application Logic -->
+  <script>
+    let activeSessionId = null;
+    let currentSessions = [];
+    let attachedMedia = []; // [{ filename, url, mime_type, size }]
+    let isGenerating = false;
+
+    // DOM Elements
+    const sessionsList = document.getElementById('sessionsList');
+    const messagesContainer = document.getElementById('messagesContainer');
+    const promptInput = document.getElementById('promptInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const newSessionBtn = document.getElementById('newSessionBtn');
+    const sessionSearchInput = document.getElementById('sessionSearchInput');
+    const activeSessionTitle = document.getElementById('activeSessionTitle');
+    const renameSessionBtn = document.getElementById('renameSessionBtn');
+    const clearMessagesBtn = document.getElementById('clearMessagesBtn');
+    const deleteSessionBtn = document.getElementById('deleteSessionBtn');
+    const mediaShelf = document.getElementById('mediaShelf');
+    const attachBtn = document.getElementById('attachBtn');
+    const fileInput = document.getElementById('fileInput');
+    const dropZone = document.getElementById('dropZone');
+    const lightboxModal = document.getElementById('lightboxModal');
+    const lightboxImg = document.getElementById('lightboxImg');
+    const closeLightbox = document.getElementById('closeLightbox');
+    const toggleSidebarBtn = document.getElementById('toggleSidebarBtn');
+    const sidebar = document.getElementById('sidebar');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+    // Sidebar Toggle for Mobile
+    toggleSidebarBtn.addEventListener('click', () => {
+      sidebar.classList.toggle('-translate-x-full');
+      sidebarOverlay.classList.toggle('hidden');
+    });
+    sidebarOverlay.addEventListener('click', () => {
+      sidebar.classList.add('-translate-x-full');
+      sidebarOverlay.classList.add('hidden');
+    });
+
+    // Lightbox handlers
+    closeLightbox.addEventListener('click', () => lightboxModal.classList.add('hidden'));
+    lightboxModal.addEventListener('click', (e) => {
+      if (e.target === lightboxModal) lightboxModal.classList.add('hidden');
+    });
+    function openLightbox(url) {
+      lightboxImg.src = url;
+      lightboxModal.classList.remove('hidden');
+    }
+
+    // Escape HTML helper
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // Auto resize textarea
+    promptInput.addEventListener('input', () => {
+      promptInput.style.height = 'auto';
+      promptInput.style.height = Math.min(promptInput.scrollHeight, 180) + 'px';
+    });
+
+    // Enter to Send, Shift+Enter for newline
+    promptInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    // Clipboard Paste handler (for images / screenshots)
+    document.addEventListener('paste', async (e) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const blob = items[i].getAsFile();
+          if (blob) {
+            e.preventDefault();
+            await uploadFileLocally(blob, `pasted_image_${Date.now()}.png`);
+          }
+        }
+      }
+    });
+
+    // Drag and Drop handlers
+    ['dragenter', 'dragover'].forEach(name => {
+      dropZone.addEventListener(name, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.classList.add('drag-active');
+      });
+    });
+    ['dragleave', 'drop'].forEach(name => {
+      dropZone.addEventListener(name, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.classList.remove('drag-active');
+      });
+    });
+    dropZone.addEventListener('drop', async (e) => {
+      const files = e.dataTransfer?.files;
+      if (files && files.length > 0) {
+        for (let i = 0; i < files.length; i++) {
+          await uploadFileLocally(files[i]);
+        }
+      }
+    });
+
+    // File Input button
+    attachBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', async () => {
+      if (fileInput.files && fileInput.files.length > 0) {
+        for (let i = 0; i < fileInput.files.length; i++) {
+          await uploadFileLocally(fileInput.files[i]);
+        }
+        fileInput.value = '';
+      }
+    });
+
+    // Upload file to local server
+    async function uploadFileLocally(file, customName) {
+      if (!activeSessionId) return;
+
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64Data = reader.result;
+        try {
+          const res = await fetch('/api/upload_media', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              session_id: activeSessionId,
+              filename: customName || file.name,
+              mime_type: file.type || 'application/octet-stream',
+              data: base64Data
+            })
+          });
+          const data = await res.json();
+          if (data.ok) {
+            attachedMedia.push(data.file);
+            renderMediaShelf();
+          } else {
+            alert('Lỗi lưu media: ' + data.error);
+          }
+        } catch (err) {
+          console.error('Upload media error:', err);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function renderMediaShelf() {
+      if (attachedMedia.length === 0) {
+        mediaShelf.classList.add('hidden');
+        mediaShelf.innerHTML = '';
+        return;
+      }
+
+      mediaShelf.classList.remove('hidden');
+      mediaShelf.innerHTML = attachedMedia.map((m, idx) => {
+        const isImg = m.mime_type.startsWith('image/');
+        return `
+          <div class="flex items-center gap-1.5 px-2.5 py-1 bg-slate-950 border border-slate-700 rounded-xl text-xs text-slate-300 shrink-0">
+            ${isImg ? `<img src="${m.url}" class="w-6 h-6 object-cover rounded">` : `<i class="fa-solid fa-file text-cyan-400"></i>`}
+            <span class="max-w-[120px] truncate text-[11px] font-mono">${escapeHtml(m.filename)}</span>
+            <button onclick="removeAttachedMedia(${idx})" class="text-slate-500 hover:text-red-400 p-0.5 ml-1">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    window.removeAttachedMedia = function(idx) {
+      attachedMedia.splice(idx, 1);
+      renderMediaShelf();
+    };
+
+    // Initialize Sessions
+    async function loadSessions() {
+      try {
+        const res = await fetch('/api/sessions');
+        const data = await res.json();
+        if (data.ok) {
+          currentSessions = data.sessions || [];
+          renderSessionsList();
+          if (currentSessions.length > 0) {
+            if (!activeSessionId || !currentSessions.find(s => s.id === activeSessionId)) {
+              selectSession(currentSessions[0].id);
+            }
+          } else {
+            createNewSession();
+          }
+        }
+      } catch (err) {
+        console.error('Load sessions error:', err);
+      }
+    }
+
+    function renderSessionsList(filterQuery = '') {
+      const q = filterQuery.toLowerCase().trim();
+      const filtered = q ? currentSessions.filter(s => s.title.toLowerCase().includes(q)) : currentSessions;
+
+      if (filtered.length === 0) {
+        sessionsList.innerHTML = `<div class="p-4 text-center text-slate-500 text-xs">Không tìm thấy phiên nào.</div>`;
+        return;
+      }
+
+      sessionsList.innerHTML = filtered.map(s => {
+        const isActive = s.id === activeSessionId;
+        return `
+          <div onclick="selectSession('${s.id}')" class="group flex items-center justify-between p-2 rounded-xl cursor-pointer transition ${isActive ? 'bg-cyan-500/10 border border-cyan-500/30 text-white' : 'hover:bg-slate-800 text-slate-400 hover:text-slate-200'}">
+            <div class="flex items-center gap-2.5 overflow-hidden">
+              <i class="fa-regular fa-message text-xs ${isActive ? 'text-cyan-400' : 'text-slate-500'}"></i>
+              <div class="overflow-hidden">
+                <div class="text-xs font-medium truncate ${isActive ? 'text-white' : ''}">${escapeHtml(s.title)}</div>
+                <div class="text-[10px] text-slate-500 font-mono">${s.created_at ? s.created_at.substring(0, 16).replace('T', ' ') : ''}</div>
+              </div>
+            </div>
+            <button onclick="event.stopPropagation(); deleteSession('${s.id}')" class="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 p-1 transition" title="Xóa phiên">
+              <i class="fa-solid fa-trash-can text-xs"></i>
+            </button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    sessionSearchInput.addEventListener('input', (e) => {
+      renderSessionsList(e.target.value);
+    });
+
+    newSessionBtn.addEventListener('click', () => createNewSession());
+    document.getElementById('refreshSessionsBtn').addEventListener('click', () => loadSessions());
+
+    async function createNewSession() {
+      try {
+        const res = await fetch('/api/sessions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: 'Phiên Trò Chuyện Mới' })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          currentSessions.unshift(data.session);
+          renderSessionsList();
+          selectSession(data.session.id);
+        }
+      } catch (err) {
+        console.error('Create session error:', err);
+      }
+    }
+
+    async function selectSession(sessionId) {
+      activeSessionId = sessionId;
+      const s = currentSessions.find(item => item.id === sessionId);
+      if (s) {
+        activeSessionTitle.innerText = s.title;
+      }
+      attachedMedia = [];
+      renderMediaShelf();
+      renderSessionsList(sessionSearchInput.value);
+      await loadSessionMessages(sessionId);
+    }
+
+    // Rename Session
+    renameSessionBtn.addEventListener('click', async () => {
+      if (!activeSessionId) return;
+      const current = activeSessionTitle.innerText;
+      const newTitle = prompt('Nhập tên mới cho phiên trò chuyện:', current);
+      if (newTitle && newTitle.trim() && newTitle.trim() !== current) {
+        try {
+          const res = await fetch(`/api/sessions/${activeSessionId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: newTitle.trim() })
+          });
+          const data = await res.json();
+          if (data.ok) {
+            activeSessionTitle.innerText = newTitle.trim();
+            const s = currentSessions.find(item => item.id === activeSessionId);
+            if (s) s.title = newTitle.trim();
+            renderSessionsList();
+          }
+        } catch (e) {}
+      }
+    });
+
+    // Delete Session
+    deleteSessionBtn.addEventListener('click', async () => {
+      if (!activeSessionId) return;
+      if (confirm('Bạn có chắc chắn muốn xóa phiên trò chuyện này không?')) {
+        await deleteSession(activeSessionId);
+      }
+    });
+
+    async function deleteSession(id) {
+      try {
+        await fetch(`/api/sessions/${id}`, { method: 'DELETE' });
+        currentSessions = currentSessions.filter(s => s.id !== id);
+        if (currentSessions.length > 0) {
+          selectSession(currentSessions[0].id);
+        } else {
+          createNewSession();
+        }
+      } catch (err) {
+        console.error('Delete session error:', err);
+      }
+    }
+
+    // Clear messages
+    clearMessagesBtn.addEventListener('click', async () => {
+      if (!activeSessionId) return;
+      if (confirm('Xóa sạch lịch sử tin nhắn trong phiên này?')) {
+        try {
+          await fetch(`/api/sessions/${activeSessionId}/messages`, { method: 'DELETE' });
+          await loadSessionMessages(activeSessionId);
+        } catch (e) {}
+      }
+    });
+
+    // Load Messages
+    async function loadSessionMessages(sessionId) {
+      messagesContainer.innerHTML = `<div class="p-6 text-center text-slate-500 text-xs"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Đang tải tin nhắn...</div>`;
+      try {
+        const res = await fetch(`/api/sessions/${sessionId}/messages`);
+        const data = await res.json();
+        if (data.ok) {
+          renderMessages(data.messages || []);
+        }
+      } catch (err) {
+        messagesContainer.innerHTML = `<div class="p-6 text-center text-red-400 text-xs">Lỗi tải tin nhắn.</div>`;
+      }
+    }
+
+    function renderMessages(messages) {
+      if (!messages || messages.length === 0) {
+        messagesContainer.innerHTML = `
+          <div class="h-full flex flex-col items-center justify-center text-center p-6 space-y-4 my-auto">
+            <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-cyan-500/20 to-emerald-500/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-3xl shadow-xl">
+              <i class="fa-solid fa-robot"></i>
+            </div>
+            <div>
+              <h3 class="text-base font-bold text-white">Tôi có thể hỗ trợ gì cho bạn hôm nay?</h3>
+              <p class="text-xs text-slate-400 mt-1 max-w-md">KEN AGENT đã kết nối với máy tính của bạn. Bạn có thể trò chuyện, gửi file/ảnh chụp màn hình (lưu cục bộ), hoặc ra lệnh thực thi.</p>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-w-lg w-full pt-2">
+              <button onclick="setPrompt('Kiểm tra cấu hình phần cứng và bộ nhớ RAM của máy tôi')" class="p-3 bg-slate-900 border border-slate-800 hover:border-cyan-500/50 rounded-xl text-left text-xs text-slate-300 hover:text-white transition group">
+                <div class="font-semibold flex items-center gap-1.5"><i class="fa-solid fa-microchip text-cyan-400"></i> Kiểm tra phần cứng</div>
+                <div class="text-[11px] text-slate-500 mt-0.5 group-hover:text-slate-400">Xem RAM, CPU và ổ đĩa hiện tại</div>
+              </button>
+              <button onclick="setPrompt('Viết script Python crawl dữ liệu đơn giản và lưu file JSON')" class="p-3 bg-slate-900 border border-slate-800 hover:border-cyan-500/50 rounded-xl text-left text-xs text-slate-300 hover:text-white transition group">
+                <div class="font-semibold flex items-center gap-1.5"><i class="fa-solid fa-code text-emerald-400"></i> Viết mã tự động hóa</div>
+                <div class="text-[11px] text-slate-500 mt-0.5 group-hover:text-slate-400">Tạo script Python mẫu chuẩn</div>
+              </button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      messagesContainer.innerHTML = messages.map(m => renderSingleMessage(m)).join('');
+      attachCopyHandlers();
+      scrollToBottom();
+    }
+
+    function renderSingleMessage(m) {
+      const isUser = m.role === 'user';
+      let mediaHtml = '';
+
+      if (m.media_json) {
+        try {
+          const mediaArr = JSON.parse(m.media_json);
+          if (Array.isArray(mediaArr) && mediaArr.length > 0) {
+            mediaHtml = `<div class="flex flex-wrap gap-2 mt-2">` + mediaArr.map(med => {
+              if (med.mime_type && med.mime_type.startsWith('image/')) {
+                return `<img src="${med.url}" onclick="openLightbox('${med.url}')" class="w-36 h-28 object-cover rounded-lg border border-slate-700 cursor-pointer hover:opacity-90 transition">`;
+              } else {
+                return `
+                  <a href="${med.url}" download="${escapeHtml(med.filename)}" class="flex items-center gap-2 p-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-cyan-400 hover:underline">
+                    <i class="fa-solid fa-file"></i>
+                    <span class="max-w-[150px] truncate">${escapeHtml(med.filename)}</span>
+                  </a>
+                `;
+              }
+            }).join('') + `</div>`;
+          }
+        } catch (e) {}
+      }
+
+      const parsedContent = isUser ? `<div class="whitespace-pre-wrap">${escapeHtml(m.content)}</div>` : marked.parse(m.content || '');
+
+      return `
+        <div class="flex gap-3 ${isUser ? 'justify-end' : 'justify-start'} group">
+          ${!isUser ? `
+            <div class="w-7 h-7 rounded-lg bg-gradient-to-tr from-cyan-500 to-emerald-400 flex items-center justify-center text-slate-950 font-black text-xs shrink-0 mt-0.5">
+              <i class="fa-solid fa-robot"></i>
+            </div>
+          ` : ''}
+
+          <div class="max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 ${isUser ? 'bg-cyan-600/90 text-white rounded-br-none shadow-md' : 'bg-slate-900 border border-slate-800 rounded-bl-none text-slate-200 shadow-md'}">
+            <div class="${isUser ? '' : 'prose-ken'}">${parsedContent}</div>
+            ${mediaHtml}
+            <div class="text-[10px] ${isUser ? 'text-cyan-200' : 'text-slate-500'} mt-1 text-right font-mono">${m.created_at ? m.created_at.substring(11, 16) : ''}</div>
+          </div>
+
+          ${isUser ? `
+            <div class="w-7 h-7 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-cyan-400 font-bold text-xs shrink-0 mt-0.5">
+              <i class="fa-solid fa-user"></i>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    function attachCopyHandlers() {
+      document.querySelectorAll('.prose-ken pre').forEach(pre => {
+        if (pre.querySelector('.copy-code-btn')) return;
+        const btn = document.createElement('button');
+        btn.className = 'copy-code-btn absolute top-2 right-2 px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] rounded flex items-center gap-1 border border-slate-700 transition';
+        btn.innerHTML = '<i class="fa-solid fa-copy"></i> Sao chép';
+        btn.onclick = () => {
+          const code = pre.querySelector('code')?.innerText || pre.innerText;
+          navigator.clipboard.writeText(code).then(() => {
+            btn.innerHTML = '<i class="fa-solid fa-check text-emerald-400"></i> Đã chép';
+            setTimeout(() => { btn.innerHTML = '<i class="fa-solid fa-copy"></i> Sao chép'; }, 2000);
+          });
+        };
+        pre.appendChild(btn);
+      });
+    }
+
+    function scrollToBottom() {
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    window.setPrompt = function(text) {
+      promptInput.value = text;
+      promptInput.focus();
+      promptInput.dispatchEvent(new Event('input'));
+    };
+
+    // Send Message
+    async function sendMessage() {
+      if (isGenerating) return;
+      const text = promptInput.value.trim();
+      if (!text && attachedMedia.length === 0) return;
+
+      const userMedia = [...attachedMedia];
+      promptInput.value = '';
+      promptInput.style.height = 'auto';
+      attachedMedia = [];
+      renderMediaShelf();
+
+      // Append temporary user message
+      const tempUserMsg = {
+        role: 'user',
+        content: text,
+        media_json: JSON.stringify(userMedia),
+        created_at: new Date().toISOString()
+      };
+
+      // If empty placeholder, clear it
+      if (messagesContainer.querySelector('.fa-robot')) {
+        messagesContainer.innerHTML = '';
+      }
+
+      messagesContainer.insertAdjacentHTML('beforeend', renderSingleMessage(tempUserMsg));
+
+      // Append typing indicator
+      const typingId = 'typing_' + Date.now();
+      messagesContainer.insertAdjacentHTML('beforeend', `
+        <div id="${typingId}" class="flex gap-3 justify-start">
+          <div class="w-7 h-7 rounded-lg bg-gradient-to-tr from-cyan-500 to-emerald-400 flex items-center justify-center text-slate-950 font-black text-xs shrink-0 mt-0.5">
+            <i class="fa-solid fa-robot"></i>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl rounded-bl-none px-4 py-3 shadow-md flex items-center gap-1.5 text-cyan-400 text-xs">
+            <span class="w-2 h-2 rounded-full bg-cyan-400 animate-bounce"></span>
+            <span class="w-2 h-2 rounded-full bg-cyan-400 animate-bounce [animation-delay:0.2s]"></span>
+            <span class="w-2 h-2 rounded-full bg-cyan-400 animate-bounce [animation-delay:0.4s]"></span>
+          </div>
+        </div>
+      `);
+      scrollToBottom();
+
+      isGenerating = true;
+      sendBtn.disabled = true;
+
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            session_id: activeSessionId,
+            prompt: text,
+            media: userMedia
+          })
+        });
+
+        const data = await res.json();
+        document.getElementById(typingId)?.remove();
+
+        if (data.ok) {
+          const assistantMsg = {
+            role: 'assistant',
+            content: data.response,
+            media_json: null,
+            created_at: new Date().toISOString()
+          };
+          messagesContainer.insertAdjacentHTML('beforeend', renderSingleMessage(assistantMsg));
+          attachCopyHandlers();
+
+          // Refresh session list to update title if changed
+          loadSessions();
+        } else {
+          messagesContainer.insertAdjacentHTML('beforeend', `
+            <div class="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs">
+              ⚠️ Lỗi: ${escapeHtml(data.error || 'Không thể xử lý yêu cầu.')}
+            </div>
+          `);
+        }
+      } catch (err) {
+        document.getElementById(typingId)?.remove();
+        messagesContainer.insertAdjacentHTML('beforeend', `
+          <div class="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs">
+            ⚠️ Lỗi kết nối tới daemon: ${escapeHtml(err.message)}
+          </div>
+        `);
+      } finally {
+        isGenerating = false;
+        sendBtn.disabled = false;
+        scrollToBottom();
+      }
+    }
+
+    sendBtn.addEventListener('click', sendMessage);
+
+    // Initial Status Check
+    async function checkDaemonStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        if (data.ok) {
+          document.getElementById('tokenBadge').classList.remove('hidden');
+          document.getElementById('tokenNameDisplay').innerText = data.token_name || 'Token Hợp Lệ';
+        }
+      } catch (e) {}
+    }
+
+    // Startup
+    checkDaemonStatus();
+    loadSessions();
+  </script>
+</body>
+</html>
