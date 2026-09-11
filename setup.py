@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="ken-agent",
-    version="2.6.0",
+    version="2.7.0",
     description="KEN AGENT - Autonomous Desktop AI Runner (HPD Ecosystem)",
     long_description=long_description,
     long_description_content_type="text/markdown",

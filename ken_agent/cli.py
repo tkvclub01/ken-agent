@@ -35,7 +35,7 @@ DEFAULT_SERVER_URL = "wss://ken.haiphongdeveloper.com/ws/ken-hub"
 AUTH_PATH = os.path.join(APP_DIR, "auth.json")
 HUB_URL = "https://ken.haiphongdeveloper.com"
 HUB_WS_URL = "wss://ken.haiphongdeveloper.com/ws/ken-hub"
-CURRENT_VERSION = "2.6.0"
+CURRENT_VERSION = "2.7.0"
 
 # --- ZERO-TOKEN 1-CLICK DEVICE AUTHENTICATION ---
 def load_device_auth():
@@ -1228,6 +1228,263 @@ async def send_heartbeat_loop(ws):
         except Exception:
             break
 
+# --- WEBRTC DATACHANNEL P2P ENGINE ---
+try:
+    from aiortc import RTCPeerConnection, RTCSessionDescription, RTCConfiguration, RTCIceServer
+    HAS_WEBRTC = True
+except ImportError:
+    HAS_WEBRTC = False
+
+active_pcs = {}  # sender_user_id -> RTCPeerConnection
+active_dcs = {}  # sender_user_id -> RTCDataChannel
+file_upload_buffers = {}  # file_id -> dict
+
+async def execute_p2p_task(channel, task_id, command, prompt, cwd):
+    def p2p_stream(chunk):
+        try:
+            if channel and getattr(channel, 'readyState', None) == "open":
+                channel.send(json.dumps({
+                    "type": "TASK_STREAM",
+                    "task_id": task_id,
+                    "chunk": chunk
+                }))
+        except Exception:
+            pass
+
+    if command:
+        p2p_stream(f"⚡ [P2P Direct]: Thực thi `{command}`\n")
+        out = await run_command_on_system(command, cwd=cwd)
+    else:
+        out = await handle_agent_task(prompt, cwd=cwd, stream_cb=p2p_stream)
+
+    try:
+        if channel and getattr(channel, 'readyState', None) == "open":
+            channel.send(json.dumps({
+                "type": "TASK_COMPLETED",
+                "task_id": task_id,
+                "response": out,
+                "is_error": False,
+                "p2p": True
+            }))
+    except Exception as e:
+        print(f"⚠️ [P2P Send Error]: {e}")
+
+async def stream_file_download_p2p(channel, transfer_id, file_path):
+    if not os.path.exists(file_path):
+        if channel and getattr(channel, 'readyState', None) == "open":
+            channel.send(json.dumps({
+                "type": "FILE_DOWNLOAD_ERROR",
+                "transfer_id": transfer_id,
+                "error": f"Tệp tin '{file_path}' không tồn tại trên máy."
+            }))
+        return
+    try:
+        file_size = os.path.getsize(file_path)
+        file_name = os.path.basename(file_path)
+        if channel and getattr(channel, 'readyState', None) == "open":
+            channel.send(json.dumps({
+                "type": "FILE_DOWNLOAD_START",
+                "transfer_id": transfer_id,
+                "name": file_name,
+                "size": file_size
+            }))
+
+        chunk_size = 64 * 1024  # 64KB per chunk
+        with open(file_path, "rb") as f:
+            idx = 0
+            while True:
+                chunk = f.read(chunk_size)
+                if not chunk:
+                    break
+                b64_chunk = base64.b64encode(chunk).decode("ascii")
+                if channel and getattr(channel, 'readyState', None) == "open":
+                    channel.send(json.dumps({
+                        "type": "FILE_DOWNLOAD_CHUNK",
+                        "transfer_id": transfer_id,
+                        "index": idx,
+                        "data": b64_chunk
+                    }))
+                idx += 1
+                await asyncio.sleep(0.002)
+
+        if channel and getattr(channel, 'readyState', None) == "open":
+            channel.send(json.dumps({
+                "type": "FILE_DOWNLOAD_COMPLETE",
+                "transfer_id": transfer_id,
+                "total_chunks": idx
+            }))
+        print(f"📤 [P2P File Download]: Đã chuyển file '{file_name}' ({file_size} bytes) tới Web Client")
+    except Exception as e:
+        if channel and getattr(channel, 'readyState', None) == "open":
+            channel.send(json.dumps({
+                "type": "FILE_DOWNLOAD_ERROR",
+                "transfer_id": transfer_id,
+                "error": str(e)
+            }))
+
+async def handle_list_dir_p2p(channel, req_path, cwd=None):
+    base_dir = os.path.join(cwd, req_path) if (cwd and not os.path.isabs(req_path)) else req_path
+    base_dir = os.path.abspath(base_dir)
+    try:
+        entries = []
+        if os.path.exists(base_dir) and os.path.isdir(base_dir):
+            for item in sorted(os.listdir(base_dir)):
+                if item.startswith('.') and item not in ['.env', '.gitignore']:
+                    continue
+                fp = os.path.join(base_dir, item)
+                is_dir = os.path.isdir(fp)
+                sz = 0 if is_dir else os.path.getsize(fp)
+                mtime = os.path.getmtime(fp)
+                entries.append({
+                    "name": item,
+                    "is_dir": is_dir,
+                    "size": sz,
+                    "mtime": mtime
+                })
+        if channel and getattr(channel, 'readyState', None) == "open":
+            channel.send(json.dumps({
+                "type": "LIST_DIR_RES",
+                "path": base_dir,
+                "entries": entries
+            }))
+    except Exception as e:
+        if channel and getattr(channel, 'readyState', None) == "open":
+            channel.send(json.dumps({
+                "type": "LIST_DIR_RES",
+                "path": base_dir,
+                "error": str(e),
+                "entries": []
+            }))
+
+async def handle_webrtc_signal(ws, data):
+    if not HAS_WEBRTC:
+        return
+    sender_user_id = data.get("sender_user_id")
+    signal = data.get("signal", {})
+    sig_type = signal.get("type")
+
+    if sig_type == "offer":
+        if sender_user_id in active_pcs:
+            try:
+                await active_pcs[sender_user_id].close()
+            except Exception:
+                pass
+
+        pc = RTCPeerConnection(RTCConfiguration([
+            RTCIceServer(urls=["stun:stun.l.google.com:19302"])
+        ]))
+        active_pcs[sender_user_id] = pc
+
+        @pc.on("datachannel")
+        def on_datachannel(channel):
+            active_dcs[sender_user_id] = channel
+            print(f"⚡ [WebRTC P2P]: DataChannel '{channel.label}' ĐÃ KẾT NỐI TRỰC TIẾP với Web Client ({sender_user_id})!")
+
+            @channel.on("message")
+            def on_dc_message(raw_msg):
+                try:
+                    if isinstance(raw_msg, str):
+                        m = json.loads(raw_msg)
+                        m_type = m.get("type")
+
+                        if m_type == "PING":
+                            channel.send(json.dumps({
+                                "type": "PONG",
+                                "ts": m.get("ts"),
+                                "pc_time": time.time()
+                            }))
+
+                        elif m_type == "EXECUTE_FAST":
+                            task_id = m.get("task_id")
+                            cmd = m.get("command")
+                            cwd = m.get("cwd")
+                            prompt = m.get("prompt", "")
+                            loop = asyncio.get_running_loop()
+                            asyncio.run_coroutine_threadsafe(
+                                execute_p2p_task(channel, task_id, cmd, prompt, cwd),
+                                loop
+                            )
+
+                        elif m_type == "FILE_UPLOAD_START":
+                            f_id = m.get("file_id")
+                            file_upload_buffers[f_id] = {
+                                "name": m.get("name"),
+                                "size": m.get("size"),
+                                "target_dir": m.get("target_dir") or os.getcwd(),
+                                "data": bytearray(),
+                                "chunks": 0,
+                                "total_chunks": m.get("total_chunks", 1)
+                            }
+                            channel.send(json.dumps({
+                                "type": "FILE_UPLOAD_READY",
+                                "file_id": f_id
+                            }))
+
+                        elif m_type == "FILE_UPLOAD_CHUNK":
+                            f_id = m.get("file_id")
+                            if f_id in file_upload_buffers:
+                                b64 = m.get("data", "")
+                                if b64:
+                                    file_upload_buffers[f_id]["data"].extend(base64.b64decode(b64))
+                                    file_upload_buffers[f_id]["chunks"] += 1
+
+                        elif m_type == "FILE_UPLOAD_FINISH":
+                            f_id = m.get("file_id")
+                            if f_id in file_upload_buffers:
+                                binfo = file_upload_buffers.pop(f_id)
+                                target_dir = os.path.expanduser(binfo["target_dir"])
+                                os.makedirs(target_dir, exist_ok=True)
+                                target_path = os.path.join(target_dir, os.path.basename(binfo["name"]))
+                                with open(target_path, "wb") as f:
+                                    f.write(binfo["data"])
+                                print(f"📁 [P2P File Upload]: Đã nhận file '{binfo['name']}' ({len(binfo['data'])} bytes) -> {target_path}")
+                                channel.send(json.dumps({
+                                    "type": "FILE_UPLOAD_SUCCESS",
+                                    "file_id": f_id,
+                                    "name": binfo["name"],
+                                    "size": len(binfo["data"]),
+                                    "path": target_path
+                                }))
+
+                        elif m_type == "FILE_DOWNLOAD_REQ":
+                            req_path = os.path.expanduser(m.get("path", ""))
+                            transfer_id = m.get("transfer_id")
+                            cwd = m.get("cwd")
+                            if not os.path.isabs(req_path) and cwd:
+                                req_path = os.path.join(cwd, req_path)
+                            loop = asyncio.get_running_loop()
+                            asyncio.run_coroutine_threadsafe(
+                                stream_file_download_p2p(channel, transfer_id, req_path),
+                                loop
+                            )
+
+                        elif m_type == "LIST_DIR_REQ":
+                            req_path = os.path.expanduser(m.get("path", ".") or ".")
+                            cwd = m.get("cwd")
+                            loop = asyncio.get_running_loop()
+                            asyncio.run_coroutine_threadsafe(
+                                handle_list_dir_p2p(channel, req_path, cwd),
+                                loop
+                            )
+
+                except Exception as ex:
+                    print(f"⚠️ [P2P DC Message Error]: {ex}")
+
+        # Set remote offer and create answer
+        await pc.setRemoteDescription(RTCSessionDescription(sdp=signal["sdp"], type=signal["type"]))
+        answer = await pc.createAnswer()
+        await pc.setLocalDescription(answer)
+
+        # Send answer back through WebSocket signaling
+        await ws.send(json.dumps({
+            "type": "RTC_SIGNAL",
+            "target_user_id": sender_user_id,
+            "signal": {
+                "type": "answer",
+                "sdp": pc.localDescription.sdp
+            }
+        }))
+
 async def start_relay_loop(auth_data, server_url=None):
     check_for_updates()
     
@@ -1313,6 +1570,9 @@ async def start_relay_loop(auth_data, server_url=None):
                             "response": output,
                             "is_error": False
                         }))
+
+                    elif msg_type == "RTC_SIGNAL":
+                        asyncio.create_task(handle_webrtc_signal(ws, data))
 
                     elif msg_type == "UNPAIRED":
                         print("\n⚠️ Thiết bị đã bị hủy ghép đôi khỏi tài khoản trên Web Hub.")
