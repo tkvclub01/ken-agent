@@ -35,7 +35,7 @@ DEFAULT_SERVER_URL = "wss://ken.haiphongdeveloper.com/ws/ken-hub"
 AUTH_PATH = os.path.join(APP_DIR, "auth.json")
 HUB_URL = "https://ken.haiphongdeveloper.com"
 HUB_WS_URL = "wss://ken.haiphongdeveloper.com/ws/ken-hub"
-CURRENT_VERSION = "2.5.0"
+CURRENT_VERSION = "2.6.0"
 
 # --- ZERO-TOKEN 1-CLICK DEVICE AUTHENTICATION ---
 def load_device_auth():
@@ -194,16 +194,15 @@ def ensure_web_ui_html():
 LOCAL_AGENT_SYSTEM_PROMPT = f"""You are KEN AGENT (Senior Lead AI Engineer, Hermes Parity).
 You run locally on the user's computer ({platform.system()} {platform.release()}).
 You communicate clearly, knowledgeably, and directly in Vietnamese with Markdown formatting.
-You possess full autonomous capabilities to control and inspect this local computer via your tools.
+You possess full autonomous capabilities to control, inspect, and automate this local computer via your tools.
 
 AUTONOMOUS EXECUTION RULES:
 1. ALWAYS use the provided tools to FINISH THE JOB autonomously. NEVER tell the user to run commands manually.
-2. For system status (disk space, RAM, CPU, OS, processes, hardware, network, files): ALWAYS call 'execute_shell' or 'system_info' to retrieve REAL system stats.
-   - For disk space: call 'execute_shell' with 'df -h' on Linux/macOS or 'wmic logicaldisk get caption,freespace,size' on Windows, or call 'system_info'.
-   - For RAM: call 'execute_shell' with 'free -m' on Linux or 'vm_stat' on macOS, or call 'system_info'.
-3. For file operations: use 'read_file', 'write_file', or 'execute_shell'.
-4. For pure questions or conversation without OS action (e.g. 'Python là gì?', 'Chào bạn'): answer directly WITHOUT calling tools.
-5. Synthesize tool results into concise, polite, senior-level responses in Vietnamese with Markdown formatting.
+2. For system status (disk space, RAM, CPU, OS, processes, hardware, network, files): ALWAYS call 'system_info', 'process_manage', or 'execute_shell' to retrieve REAL system stats.
+3. For file operations: use 'list_dir', 'search_files', 'read_file', 'write_file', or 'execute_shell'.
+4. For web queries and remote URLs: use 'web_search' or 'web_extract'.
+5. For pure questions or conversation without OS action (e.g. 'Python là gì?', 'Chào bạn'): answer directly WITHOUT calling tools.
+6. Synthesize tool results into concise, polite, senior-level responses in Vietnamese with Markdown formatting.
 """
 
 LOCAL_AGENT_TOOLS = [
@@ -258,6 +257,95 @@ LOCAL_AGENT_TOOLS = [
                     "content": {"type": "string", "description": "Nội dung cần ghi"}
                 },
                 "required": ["path", "content"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_dir",
+            "description": "Liệt kê danh sách các tệp và thư mục con trong một đường dẫn trên máy tính",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Đường dẫn thư mục cần xem (mặc định: '.')"},
+                    "show_hidden": {"type": "boolean", "description": "Hiển thị cả file/folder ẩn"}
+                }
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_files",
+            "description": "Tìm kiếm file theo tên (glob pattern) hoặc tìm kiếm nội dung bên trong file (text regex)",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "pattern": {"type": "string", "description": "Mẫu tìm kiếm (tên file hoặc từ khóa nội dung)"},
+                    "target": {"type": "string", "enum": ["files", "content"], "description": "'files' để tìm theo tên file, 'content' để tìm văn bản bên trong file"},
+                    "path": {"type": "string", "description": "Thư mục gốc để tìm kiếm (mặc định: '.')"}
+                },
+                "required": ["pattern"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "process_manage",
+            "description": "Quản lý tiến trình hệ thống: xem danh sách tiến trình chạy nhiều CPU/RAM, tìm tiến trình theo cổng mạng, hoặc dừng tiến trình",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["list", "find_port", "kill"], "description": "'list' xem top tiến trình, 'find_port' tìm tiến trình theo cổng mạng, 'kill' dừng tiến trình theo PID"},
+                    "port": {"type": "integer", "description": "Cổng mạng cần tìm (dùng khi action='find_port')"},
+                    "pid": {"type": "integer", "description": "PID tiến trình cần dừng (dùng khi action='kill')"}
+                },
+                "required": ["action"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "web_search",
+            "description": "Tìm kiếm thông tin cập nhật trên internet",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Từ khóa hoặc câu hỏi cần tra cứu trên mạng"}
+                },
+                "required": ["query"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "web_extract",
+            "description": "Trích xuất văn bản nội dung từ một trang web qua đường dẫn URL",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string", "description": "Đường dẫn HTTP/HTTPS của trang web cần đọc"}
+                },
+                "required": ["url"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "cronjob_manage",
+            "description": "Quản lý lịch trình tự động (cronjob trên Linux/macOS)",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["list", "add"], "description": "'list' để xem danh sách lịch trình, 'add' để thêm dòng cronjob mới"},
+                    "line": {"type": "string", "description": "Dòng cấu hình cronjob (ví dụ: '0 8 * * * /path/to/script.sh') khi action='add'"}
+                },
+                "required": ["action"]
             }
         }
     }
@@ -341,12 +429,187 @@ def execute_local_tool(name: str, args: dict, cwd: str | None = None) -> str:
         except Exception as e:
             return f"Lỗi ghi file: {str(e)}"
 
+    elif name == "list_dir":
+        raw_path = os.path.expanduser(args.get("path", ".") or ".")
+        base_path = os.path.join(working_dir, raw_path) if (working_dir and not os.path.isabs(raw_path)) else raw_path
+        if not os.path.exists(base_path):
+            return f"Lỗi: Thư mục hoặc đường dẫn '{base_path}' không tồn tại."
+        try:
+            entries = []
+            show_hidden = bool(args.get("show_hidden", False))
+            for item in sorted(os.listdir(base_path)):
+                if item.startswith('.') and not show_hidden:
+                    continue
+                full_item = os.path.join(base_path, item)
+                is_dir = os.path.isdir(full_item)
+                size_str = ""
+                try:
+                    if not is_dir:
+                        s = os.path.getsize(full_item)
+                        if s < 1024:
+                            size_str = f"{s} B"
+                        elif s < 1024*1024:
+                            size_str = f"{s/1024:.1f} KB"
+                        else:
+                            size_str = f"{s/(1024*1024):.1f} MB"
+                except Exception:
+                    pass
+                entries.append(f"{'[DIR] ' if is_dir else '[FILE]'} {item} {f'({size_str})' if size_str else ''}".strip())
+            return "\n".join(entries) if entries else "(Thư mục trống)"
+        except Exception as e:
+            return f"Lỗi list_dir: {str(e)}"
+
+    elif name == "search_files":
+        pattern = args.get("pattern", "").strip()
+        target = args.get("target", "files")
+        raw_path = os.path.expanduser(args.get("path", ".") or ".")
+        base_dir = os.path.join(working_dir, raw_path) if (working_dir and not os.path.isabs(raw_path)) else raw_path
+        if not os.path.exists(base_dir):
+            return f"Lỗi: Đường dẫn '{base_dir}' không tồn tại."
+        try:
+            matches = []
+            if target == "files":
+                import fnmatch
+                for root, dirs, files in os.walk(base_dir):
+                    dirs[:] = [d for d in dirs if not d.startswith('.')]
+                    for f in files:
+                        if fnmatch.fnmatch(f, pattern) or pattern.lower() in f.lower():
+                            rel = os.path.relpath(os.path.join(root, f), base_dir)
+                            matches.append(rel)
+                            if len(matches) >= 50:
+                                break
+                    if len(matches) >= 50:
+                        break
+                return "\n".join(matches) if matches else f"Không tìm thấy file nào khớp với mẫu '{pattern}'."
+            else:
+                import re
+                reg = re.compile(re.escape(pattern), re.IGNORECASE)
+                for root, dirs, files in os.walk(base_dir):
+                    dirs[:] = [d for d in dirs if not d.startswith('.')]
+                    for f in files:
+                        fp = os.path.join(root, f)
+                        try:
+                            with open(fp, "r", encoding="utf-8", errors="ignore") as file_obj:
+                                for line_no, line in enumerate(file_obj, 1):
+                                    if reg.search(line):
+                                        rel = os.path.relpath(fp, base_dir)
+                                        matches.append(f"{rel}:{line_no}: {line.strip()[:100]}")
+                                        if len(matches) >= 40:
+                                            break
+                        except Exception:
+                            continue
+                        if len(matches) >= 40:
+                            break
+                    if len(matches) >= 40:
+                        break
+                return "\n".join(matches) if matches else f"Không tìm thấy nội dung khớp với '{pattern}'."
+        except Exception as e:
+            return f"Lỗi search_files: {str(e)}"
+
+    elif name == "process_manage":
+        action = args.get("action", "list")
+        if action == "list":
+            if sys.platform == "win32":
+                cmd = "tasklist /FO TABLE"
+            else:
+                cmd = "ps -eo pid,user,%cpu,%mem,comm --sort=-%cpu | head -n 15"
+            try:
+                return subprocess.check_output(cmd, shell=True, text=True, stderr=subprocess.STDOUT, timeout=10).strip()
+            except Exception as e:
+                return f"Lỗi liệt kê tiến trình: {str(e)}"
+        elif action == "find_port":
+            port = args.get("port")
+            if not port:
+                return "Lỗi: Cần cung cấp cổng (port) cần tìm."
+            if sys.platform == "win32":
+                cmd = f"netstat -ano | findstr :{port}"
+            else:
+                cmd = f"lsof -i :{port} 2>/dev/null || ss -tulpn | grep :{port}"
+            try:
+                out = subprocess.check_output(cmd, shell=True, text=True, stderr=subprocess.STDOUT, timeout=10).strip()
+                return out or f"Không có tiến trình nào đang lắng nghe trên cổng {port}."
+            except Exception as e:
+                return f"Lỗi tìm cổng {port}: {str(e)}"
+        elif action == "kill":
+            pid = args.get("pid")
+            if not pid:
+                return "Lỗi: Cần cung cấp PID để dừng."
+            try:
+                os.kill(int(pid), 9)
+                return f"Đã gửi tín hiệu dừng (SIGKILL) tới tiến trình PID {pid}."
+            except Exception as e:
+                return f"Lỗi dừng PID {pid}: {str(e)}"
+
+    elif name == "web_search":
+        query = args.get("query", "").strip()
+        if not query:
+            return "Lỗi: Không có từ khóa tìm kiếm."
+        try:
+            url = "https://api.duckduckgo.com/?q=" + urllib.parse.quote(query) + "&format=json"
+            req = urllib.request.Request(url, headers={"User-Agent": "KenAgent/2.6.0"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode("utf-8", errors="replace"))
+            results = []
+            if data.get("Abstract"):
+                results.append(f"📌 Tóm tắt: {data['Abstract']}")
+            for t in data.get("RelatedTopics", [])[:5]:
+                if isinstance(t, dict) and t.get("Text"):
+                    results.append(f"- {t['Text']}")
+            return "\n".join(results) if results else f"Đã tìm kiếm '{query}' nhưng không có kết quả tóm tắt tức thì."
+        except Exception as e:
+            return f"Lỗi web_search: {str(e)}"
+
+    elif name == "web_extract":
+        url = args.get("url", "").strip()
+        if not url:
+            return "Lỗi: Cần cung cấp URL."
+        try:
+            import re
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) KenAgent/2.6.0"})
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                raw = resp.read().decode("utf-8", errors="replace")
+            clean = re.sub(r"<(script|style).*?>.*?</\1>", "", raw, flags=re.DOTALL|re.IGNORECASE)
+            clean = re.sub(r"<[^>]+>", " ", clean)
+            clean = re.sub(r"\s+", " ", clean).strip()
+            return clean[:12000] if clean else "(Nội dung trang trống hoặc không thể phân tích văn bản)"
+        except Exception as e:
+            return f"Lỗi web_extract: {str(e)}"
+
+    elif name == "cronjob_manage":
+        action = args.get("action", "list")
+        if sys.platform == "win32":
+            return "Cronjob chưa hỗ trợ trên Windows."
+        if action == "list":
+            try:
+                out = subprocess.check_output("crontab -l", shell=True, text=True, stderr=subprocess.STDOUT).strip()
+                return out or "(Không có cronjob nào được thiết lập)"
+            except subprocess.CalledProcessError:
+                return "(Chưa có crontab cho người dùng này)"
+            except Exception as e:
+                return f"Lỗi liệt kê cronjob: {str(e)}"
+        elif action == "add":
+            line = args.get("line", "").strip()
+            if not line:
+                return "Lỗi: Thiếu dòng cấu hình cronjob (ví dụ: '0 8 * * * /path/to/script.sh')."
+            try:
+                current = ""
+                try:
+                    current = subprocess.check_output("crontab -l", shell=True, text=True, stderr=subprocess.DEVNULL)
+                except Exception:
+                    pass
+                new_cron = current.strip() + "\n" + line + "\n"
+                p = subprocess.Popen(["crontab", "-"], stdin=subprocess.PIPE, text=True)
+                p.communicate(new_cron)
+                return f"Đã thêm cronjob thành công:\n{line}"
+            except Exception as e:
+                return f"Lỗi thêm cronjob: {str(e)}"
+
     return f"Lỗi: Không tìm thấy công cụ '{name}'"
 
-def run_local_agent_loop(prompt: str, past_rows: list | None = None, token: str | None = None, device_token: str | None = None, max_steps: int = 5, cwd: str | None = None) -> str:
+def run_local_agent_loop(prompt: str, past_rows: list | None = None, token: str | None = None, device_token: str | None = None, max_steps: int = 6, cwd: str | None = None, stream_callback=None) -> str:
     """
     Vòng lặp Autonomous AI Agent (Hermes Parity) chạy cục bộ trên máy.
-    Tự động suy luận, gọi công cụ terminal/file và tổng hợp câu trả lời hoàn chỉnh.
+    Tự động suy luận, gọi công cụ terminal/file/system và tổng hợp câu trả lời hoàn chỉnh.
     """
     auth_info = load_device_auth()
     if not token and auth_info:
@@ -420,7 +683,27 @@ def run_local_agent_loop(prompt: str, past_rows: list | None = None, token: str 
                 fn_args = json.loads(tc.get("function", {}).get("arguments", "{}"))
             except Exception:
                 fn_args = {}
+
+            if stream_callback:
+                try:
+                    args_summary = json.dumps(fn_args, ensure_ascii=False)
+                    if len(args_summary) > 80:
+                        args_summary = args_summary[:77] + "..."
+                    stream_callback(f"⚙️ [Tool Call]: `{fn_name}` ({args_summary})\n")
+                except Exception:
+                    pass
+
             tool_output = execute_local_tool(fn_name, fn_args, cwd=cwd)
+
+            if stream_callback:
+                try:
+                    first_line = str(tool_output).strip().split('\n')[0]
+                    if len(first_line) > 90:
+                        first_line = first_line[:87] + "..."
+                    stream_callback(f"  └─ Kết quả: {first_line}\n")
+                except Exception:
+                    pass
+
             messages.append({
                 "role": "tool",
                 "tool_call_id": tc.get("id", f"call_{fn_name}"),
@@ -428,7 +711,7 @@ def run_local_agent_loop(prompt: str, past_rows: list | None = None, token: str 
                 "content": str(tool_output)
             })
 
-    return "⚠️ Đã đạt giới hạn số bước suy luận (5 bước). Vui lòng thử lại với yêu cầu cụ thể hơn."
+    return "⚠️ Đã đạt giới hạn số bước suy luận (6 bước). Vui lòng thử lại với yêu cầu cụ thể hơn."
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     daemon_threads = True
@@ -903,13 +1186,15 @@ async def run_command_on_system(command, cwd=None):
     except Exception as e:
         return f"❌ Lỗi thực thi hệ thống: {str(e)}"
 
-async def handle_agent_task(prompt, ai_plan=None, cwd=None):
+async def handle_agent_task(prompt, ai_plan=None, cwd=None, stream_cb=None):
     prompt_strip = prompt.strip()
     
     # 1. Nếu Hub đã có AI Planner phân tích sẵn
     if ai_plan and isinstance(ai_plan, dict):
         cmd = ai_plan.get("command") or ai_plan.get("cmd")
         if cmd:
+            if stream_cb:
+                stream_cb(f"⚡ Đang thực thi lệnh hệ thống: `{cmd}`\n")
             res = await run_command_on_system(cmd, cwd=cwd)
             return f"💻 Kết quả thực thi:\n```\n{res}\n```"
 
@@ -918,17 +1203,19 @@ async def handle_agent_task(prompt, ai_plan=None, cwd=None):
     # 2. Xử lý câu chào hỏi tự nhiên
     if prompt_lower in ["alo", "alo ken", "hi", "hello", "xin chào", "ken ơi", "hey"]:
         uname = "macOS" if sys.platform == "darwin" else ("Windows" if sys.platform == "win32" else "Linux")
-        return f"👋 Chào bạn! KEN AGENT đang sẵn sàng trên thiết bị ({uname}).\nBạn cứ ra lệnh bằng tiếng Việt tự nhiên nhé (Ví dụ: 'dung lượng ổ cứng trên máy', 'kiểm tra RAM', 'tạo file script'...)!"
+        return f"👋 Chào bạn! KEN AGENT đang sẵn sàng trên thiết bị ({uname}).\nBạn cứ ra lệnh bằng tiếng Việt tự nhiên nhé (Ví dụ: 'dung lượng ổ cứng trên máy', 'kiểm tra RAM', 'xem file thư mục'...)!"
 
     # 3. Lệnh shell trực tiếp ($ cmd hoặc ! cmd)
     if prompt_strip.startswith("$ ") or prompt_strip.startswith("! "):
         cmd = prompt_strip[2:].strip()
+        if stream_cb:
+            stream_cb(f"⚡ Đang thực thi terminal: `{cmd}`\n")
         res = await run_command_on_system(cmd, cwd=cwd)
         return f"💻 **Kết quả thực thi lệnh:**\n```bash\n{res}\n```"
 
     # 4. Ngôn ngữ tự nhiên: Chạy Local Autonomous Agent Loop (Hermes Parity)
     loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, lambda: run_local_agent_loop(prompt_strip, cwd=cwd))
+    return await loop.run_in_executor(None, lambda: run_local_agent_loop(prompt_strip, cwd=cwd, stream_callback=stream_cb))
 
 async def send_heartbeat_loop(ws):
     """Gửi heartbeat định kỳ 15s để giữ kết nối WSS luôn sống (chống timeout bởi proxy/Nginx)"""
@@ -997,10 +1284,26 @@ async def start_relay_loop(auth_data, server_url=None):
 
                         print(f"\n📥 [LỆNH TỪ XA]: {command or prompt} (cwd: {cwd or 'default'})")
 
+                        loop = asyncio.get_running_loop()
+                        def sync_stream_cb(chunk_text):
+                            if ws:
+                                try:
+                                    asyncio.run_coroutine_threadsafe(
+                                        ws.send(json.dumps({
+                                            "type": "TASK_STREAM",
+                                            "task_id": task_id,
+                                            "chunk": chunk_text
+                                        })),
+                                        loop
+                                    )
+                                except Exception:
+                                    pass
+
                         if command:
+                            sync_stream_cb(f"⚡ Đang thực thi lệnh hệ thống: `{command}`\n")
                             output = await run_command_on_system(command, cwd=cwd)
                         else:
-                            output = await handle_agent_task(prompt, cwd=cwd)
+                            output = await handle_agent_task(prompt, cwd=cwd, stream_cb=sync_stream_cb)
 
                         print(f"📤 [KẾT QUẢ]: {output[:120]}..." if len(output) > 120 else f"📤 [KẾT QUẢ]: {output}")
 
