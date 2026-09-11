@@ -1356,6 +1356,93 @@ async def handle_list_dir_p2p(channel, req_path, cwd=None):
                 "entries": []
             }))
 
+async def handle_list_dir_ws(ws, user_id, req_path, cwd=None):
+    base_dir = os.path.join(cwd, req_path) if (cwd and not os.path.isabs(req_path)) else req_path
+    base_dir = os.path.abspath(base_dir)
+    try:
+        entries = []
+        if os.path.exists(base_dir) and os.path.isdir(base_dir):
+            for item in sorted(os.listdir(base_dir)):
+                if item.startswith('.') and item not in ['.env', '.gitignore']:
+                    continue
+                fp = os.path.join(base_dir, item)
+                is_dir = os.path.isdir(fp)
+                sz = 0 if is_dir else os.path.getsize(fp)
+                mtime = os.path.getmtime(fp)
+                entries.append({
+                    "name": item,
+                    "is_dir": is_dir,
+                    "size": sz,
+                    "mtime": mtime
+                })
+        await ws.send(json.dumps({
+            "type": "LIST_DIR_RES",
+            "target_user_id": user_id,
+            "path": base_dir,
+            "entries": entries
+        }))
+    except Exception as e:
+        await ws.send(json.dumps({
+            "type": "LIST_DIR_RES",
+            "target_user_id": user_id,
+            "path": base_dir,
+            "error": str(e),
+            "entries": []
+        }))
+
+async def stream_file_download_ws(ws, user_id, transfer_id, file_path):
+    if not os.path.exists(file_path):
+        await ws.send(json.dumps({
+            "type": "FILE_DOWNLOAD_ERROR",
+            "target_user_id": user_id,
+            "transfer_id": transfer_id,
+            "error": f"Tệp tin '{file_path}' không tồn tại trên máy."
+        }))
+        return
+    try:
+        file_size = os.path.getsize(file_path)
+        file_name = os.path.basename(file_path)
+        await ws.send(json.dumps({
+            "type": "FILE_DOWNLOAD_START",
+            "target_user_id": user_id,
+            "transfer_id": transfer_id,
+            "name": file_name,
+            "size": file_size
+        }))
+
+        chunk_size = 64 * 1024
+        with open(file_path, "rb") as f:
+            idx = 0
+            while True:
+                chunk = f.read(chunk_size)
+                if not chunk:
+                    break
+                b64_chunk = base64.b64encode(chunk).decode("ascii")
+                await ws.send(json.dumps({
+                    "type": "FILE_DOWNLOAD_CHUNK",
+                    "target_user_id": user_id,
+                    "transfer_id": transfer_id,
+                    "index": idx,
+                    "data": b64_chunk
+                }))
+                idx += 1
+                await asyncio.sleep(0.002)
+
+        await ws.send(json.dumps({
+            "type": "FILE_DOWNLOAD_COMPLETE",
+            "target_user_id": user_id,
+            "transfer_id": transfer_id,
+            "total_chunks": idx
+        }))
+        print(f"📤 [WS Relay Download]: Đã gửi file '{file_name}' ({file_size} bytes) tới Web Client")
+    except Exception as e:
+        await ws.send(json.dumps({
+            "type": "FILE_DOWNLOAD_ERROR",
+            "target_user_id": user_id,
+            "transfer_id": transfer_id,
+            "error": str(e)
+        }))
+
 async def handle_webrtc_signal(ws, data):
     if not HAS_WEBRTC:
         return
@@ -1573,6 +1660,57 @@ async def start_relay_loop(auth_data, server_url=None):
 
                     elif msg_type == "RTC_SIGNAL":
                         asyncio.create_task(handle_webrtc_signal(ws, data))
+
+                    elif msg_type == "LIST_DIR_REQ":
+                        req_path = os.path.expanduser(data.get("path", ".") or ".")
+                        cwd = data.get("cwd")
+                        asyncio.create_task(handle_list_dir_ws(ws, data.get("user_id"), req_path, cwd))
+
+                    elif msg_type == "FILE_DOWNLOAD_REQ":
+                        req_path = os.path.expanduser(data.get("path", ""))
+                        transfer_id = data.get("transfer_id")
+                        cwd = data.get("cwd")
+                        if not os.path.isabs(req_path) and cwd:
+                            req_path = os.path.join(cwd, req_path)
+                        asyncio.create_task(stream_file_download_ws(ws, data.get("user_id"), transfer_id, req_path))
+
+                    elif msg_type == "FILE_UPLOAD_START":
+                        f_id = data.get("file_id")
+                        file_upload_buffers[f_id] = {
+                            "name": data.get("name"),
+                            "size": data.get("size"),
+                            "target_dir": data.get("target_dir") or os.getcwd(),
+                            "data": bytearray(),
+                            "chunks": 0,
+                            "total_chunks": data.get("total_chunks", 1)
+                        }
+
+                    elif msg_type == "FILE_UPLOAD_CHUNK":
+                        f_id = data.get("file_id")
+                        if f_id in file_upload_buffers:
+                            b64 = data.get("data", "")
+                            if b64:
+                                file_upload_buffers[f_id]["data"].extend(base64.b64decode(b64))
+                                file_upload_buffers[f_id]["chunks"] += 1
+
+                    elif msg_type == "FILE_UPLOAD_FINISH":
+                        f_id = data.get("file_id")
+                        if f_id in file_upload_buffers:
+                            binfo = file_upload_buffers.pop(f_id)
+                            target_dir = os.path.expanduser(binfo["target_dir"])
+                            os.makedirs(target_dir, exist_ok=True)
+                            target_path = os.path.join(target_dir, os.path.basename(binfo["name"]))
+                            with open(target_path, "wb") as f:
+                                f.write(binfo["data"])
+                            print(f"📁 [File Upload]: Đã nhận file '{binfo['name']}' ({len(binfo['data'])} bytes) -> {target_path}")
+                            await ws.send(json.dumps({
+                                "type": "FILE_UPLOAD_SUCCESS",
+                                "target_user_id": data.get("user_id"),
+                                "file_id": f_id,
+                                "name": binfo["name"],
+                                "size": len(binfo["data"]),
+                                "path": target_path
+                            }))
 
                     elif msg_type == "UNPAIRED":
                         print("\n⚠️ Thiết bị đã bị hủy ghép đôi khỏi tài khoản trên Web Hub.")
